@@ -1,0 +1,110 @@
+##
+# Local e-commerce platforms for adapter development.
+#
+# Start everything:
+#   docker compose -f platforms/docker-compose.platforms.yml up -d
+#
+# First boot takes ~5 min (Magento) and ~2 min (Shopware).
+#
+# After boot, seed sample products:
+#   bash platforms/magento/setup-products.sh
+#   bash platforms/shopware/setup-products.sh
+#
+# Magento 2 Store:  http://localhost:8080
+# Magento 2 Admin:  http://localhost:8080/admin  (admin / magentorocks1)
+# Magento 2 API:    http://localhost:8080/rest/V1/
+#
+# Shopware 6 Store: http://localhost:8888
+# Shopware 6 Admin: http://localhost:8888/admin  (admin / shopware)
+# Shopware 6 API:   http://localhost:8888/api/
+##
+
+services:
+  # ─── Magento 2 Open Source ─────────────────────────────────────────────
+
+  magento:
+    image: alexcheng/magento2:latest
+    ports:
+      - '8080:80'
+    environment:
+      MYSQL_HOST: magento-db
+      MYSQL_DATABASE: magento
+      MYSQL_USER: magento
+      MYSQL_PASSWORD: magento
+      MAGENTO_LANGUAGE: en_US
+      MAGENTO_TIMEZONE: UTC
+      MAGENTO_DEFAULT_CURRENCY: USD
+      MAGENTO_URL: http://localhost:8080
+      MAGENTO_ADMIN_FIRSTNAME: Admin
+      MAGENTO_ADMIN_LASTNAME: User
+      MAGENTO_ADMIN_EMAIL: admin@example.com
+      MAGENTO_ADMIN_USERNAME: admin
+      MAGENTO_ADMIN_PASSWORD: magentorocks1
+      MAGENTO_BACKEND_FRONTNAME: admin
+      MAGENTO_RUN_REINDEX: 1
+    volumes:
+      - magento_data:/var/www/html
+    depends_on:
+      magento-db:
+        condition: service_healthy
+      magento-es:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://localhost:80/health_check.php']
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 300s
+
+  magento-db:
+    image: mariadb:10.6
+    environment:
+      MARIADB_ROOT_PASSWORD: magento_root
+      MARIADB_USER: magento
+      MARIADB_PASSWORD: magento
+      MARIADB_DATABASE: magento
+    volumes:
+      - magento_db_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mariadb-admin', 'ping', '-h', 'localhost', '-u', 'root', '-pmagento_root']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  magento-es:
+    image: elasticsearch:7.17.22
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: '-Xms512m -Xmx512m'
+      xpack.security.enabled: 'false'
+    volumes:
+      - magento_es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9200/_cluster/health']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ─── Shopware 6 Open Source ────────────────────────────────────────────
+
+  shopware:
+    image: dockware/dev:6.6.4.1
+    ports:
+      - '8888:80'
+    environment:
+      SHOPWARE_ADMIN_USERNAME: admin
+      SHOPWARE_ADMIN_PASSWORD: shopware
+    volumes:
+      - shopware_data:/var/www/html
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://localhost:80/api/_info/health-check']
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+
+volumes:
+  magento_data:
+  magento_db_data:
+  magento_es_data:
+  shopware_data:
