@@ -8,6 +8,7 @@ import { agentHeaderPlugin } from './middleware/agent-header.js';
 import { healthRoutes } from './routes/health.js';
 import { discoveryRoutes } from './routes/discovery.js';
 import { productRoutes } from './routes/products.js';
+import { checkoutRoutes } from './routes/checkout.js';
 
 export interface BuildAppOptions {
   readonly container: AwilixContainer<Cradle>;
@@ -43,6 +44,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await app.register(healthRoutes);
   await app.register(discoveryRoutes);
   await app.register(productRoutes);
+  await app.register(checkoutRoutes);
 
   return app;
 }

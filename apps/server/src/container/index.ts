@@ -11,6 +11,7 @@ import {
   createDb,
   TenantRepository,
   AdapterRegistry,
+  SessionStore,
   type Database,
 } from '@ucp-middleware/core';
 import { MockAdapter } from '@ucp-middleware/adapters';
@@ -21,6 +22,7 @@ export interface Cradle {
   redis: RedisType;
   tenantRepository: TenantRepository;
   adapterRegistry: AdapterRegistry;
+  sessionStore: SessionStore;
 }
 
 export function createAppContainer(env: Env): AwilixContainer<Cradle> {
@@ -36,6 +38,9 @@ export function createAppContainer(env: Env): AwilixContainer<Cradle> {
   const adapterRegistry = new AdapterRegistry();
   adapterRegistry.register('mock', new MockAdapter());
 
+  // Session store
+  const sessionStore = new SessionStore(redis);
+
   container.register({
     env: asValue(env),
     db: asValue(db),
@@ -44,6 +49,7 @@ export function createAppContainer(env: Env): AwilixContainer<Cradle> {
       injector: () => ({ db }),
     }),
     adapterRegistry: asValue(adapterRegistry),
+    sessionStore: asValue(sessionStore),
   });
 
   return container;

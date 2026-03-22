@@ -89,7 +89,7 @@ export interface LineItem {
 
 export interface CheckoutContext {
   readonly shipping_address: Address;
-  readonly billing_address?: Address;
+  readonly billing_address?: Address | undefined;
 }
 
 export interface Totals {
@@ -104,10 +104,10 @@ export interface Address {
   readonly first_name: string;
   readonly last_name: string;
   readonly line1: string;
-  readonly line2?: string;
+  readonly line2?: string | undefined;
   readonly city: string;
   readonly postal_code: string;
-  readonly region?: string;
+  readonly region?: string | undefined;
   readonly country: string; // ISO 3166-1 alpha-2
 }
 

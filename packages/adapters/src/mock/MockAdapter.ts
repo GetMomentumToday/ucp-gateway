@@ -125,15 +125,14 @@ export class MockAdapter implements PlatformAdapter {
   }
 
   async placeOrder(cartId: string, payment: PaymentToken): Promise<Order> {
-    const cart = this.carts.get(cartId);
-    if (!cart) {
-      throw notFound('CART_NOT_FOUND', cartId);
-    }
     if (!payment.token) {
       throw new Error('Payment token is required');
     }
 
-    const subtotal = cart.items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+    const cart = this.carts.get(cartId);
+    const subtotal = cart
+      ? cart.items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0)
+      : 0;
     const total = subtotal + FLAT_SHIPPING_CENTS + Math.round(subtotal * TAX_RATE);
 
     const id = `mock-order-${String(this.nextOrderId++).padStart(4, '0')}`;
@@ -141,7 +140,7 @@ export class MockAdapter implements PlatformAdapter {
       id,
       status: 'processing',
       total,
-      currency: cart.currency,
+      currency: cart?.currency ?? 'USD',
       created_at: new Date().toISOString(),
     };
     this.orders.set(id, order);
