@@ -1,0 +1,31 @@
+/**
+ * Typed domain errors used across adapters and core services.
+ */
+
+export type AdapterErrorCode =
+  | 'PRODUCT_NOT_FOUND'
+  | 'ORDER_NOT_FOUND'
+  | 'CART_NOT_FOUND'
+  | 'OUT_OF_STOCK'
+  | 'INVALID_PAYMENT'
+  | 'PLATFORM_ERROR';
+
+export class AdapterError extends Error {
+  readonly code: AdapterErrorCode;
+  readonly statusCode: number;
+
+  constructor(code: AdapterErrorCode, message: string, statusCode = 500) {
+    super(message);
+    this.name = 'AdapterError';
+    this.code = code;
+    this.statusCode = statusCode;
+  }
+}
+
+export function notFound(code: 'PRODUCT_NOT_FOUND' | 'ORDER_NOT_FOUND' | 'CART_NOT_FOUND', id: string): AdapterError {
+  return new AdapterError(code, `${code}: ${id}`, 404);
+}
+
+export function outOfStock(productId: string): AdapterError {
+  return new AdapterError('OUT_OF_STOCK', `Product ${productId} is out of stock`, 409);
+}

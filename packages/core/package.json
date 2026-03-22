@@ -18,7 +18,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
+  "dependencies": {
+    "drizzle-orm": "^0.30.0",
+    "postgres": "^3.4.0"
+  },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "*"
   }
 }

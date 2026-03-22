@@ -1,38 +1,32 @@
 /**
- * UCP Middleware Server
- * Entry point for the Fastify HTTP server.
+ * UCP Middleware Server — entry point.
+ * Boots the DI container, builds the Fastify app, and starts listening.
  */
 
 import 'dotenv/config';
-import Fastify from 'fastify';
+import { loadEnv } from './config/env.js';
+import { createAppContainer } from './container/index.js';
+import { buildApp } from './app.js';
 
-const PORT = parseInt(process.env['PORT'] ?? '3000', 10);
-const LOG_LEVEL = process.env['LOG_LEVEL'] ?? 'info';
-const NODE_ENV = process.env['NODE_ENV'] ?? 'development';
+const env = loadEnv();
+const container = createAppContainer(env);
+const app = await buildApp({ container });
 
-const server = Fastify({
-  logger: {
-    level: LOG_LEVEL,
-    ...(NODE_ENV === 'development'
-      ? { transport: { target: 'pino-pretty', options: { colorize: true } } }
-      : {}),
-  },
-});
-
-server.get('/health', async () => ({ status: 'ok' }));
-
-server.get('/ready', async (_request, reply) => {
-  // TODO: verify DB and Redis connectivity
-  return reply.send({ status: 'ok' });
-});
-
-const start = async (): Promise<void> => {
-  try {
-    await server.listen({ port: PORT, host: '0.0.0.0' });
-  } catch (err) {
-    server.log.error(err);
-    process.exit(1);
-  }
+// Graceful shutdown
+const shutdown = async (signal: string): Promise<void> => {
+  app.log.info(`Received ${signal}, shutting down gracefully…`);
+  await app.close();
+  container.dispose();
+  process.exit(0);
 };
 
-await start();
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
+
+// Start server
+try {
+  await app.listen({ port: env.PORT, host: '0.0.0.0' });
+} catch (err) {
+  app.log.error(err);
+  process.exit(1);
+}

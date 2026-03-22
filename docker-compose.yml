@@ -7,6 +7,7 @@ services:
       dockerfile: apps/server/Dockerfile
     ports:
       - '${PORT:-3000}:3000'
+    env_file: .env
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}

@@ -3,10 +3,11 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "paths": {
-      "@ucp-middleware/core": ["../core/src/index.ts"]
-    }
+    "composite": true
   },
   "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules"],
+  "references": [
+    { "path": "../core" }
+  ]
 }

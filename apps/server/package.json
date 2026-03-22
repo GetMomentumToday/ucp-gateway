@@ -8,17 +8,21 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "node --watch --experimental-transform-types src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@ucp-middleware/adapters": "*",
     "@ucp-middleware/core": "*",
     "fastify": "^4.27.0",
     "@fastify/sensible": "^5.6.0",
+    "awilix": "^10.0.0",
     "pino": "^9.2.0",
     "drizzle-orm": "^0.30.0",
     "postgres": "^3.4.0",
@@ -30,6 +34,8 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "drizzle-kit": "^0.21.0",
+    "tsx": "^4.19.0",
+    "vitest": "^1.6.0",
     "typescript": "*"
   }
 }
