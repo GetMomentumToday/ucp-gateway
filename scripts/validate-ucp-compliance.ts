@@ -149,7 +149,12 @@ async function runChecks(): Promise<void> {
     cmplOk ? '200' : `${cmpl.statusCode} (platform err, expected w/ real adapter)`,
   );
 
-  const crX = await inject({ method: 'POST', url: '/checkout-sessions', headers: JA, body: '{}' });
+  const crX = await inject({
+    method: 'POST',
+    url: '/checkout-sessions',
+    headers: JA,
+    body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
+  });
   const sidX = (json(crX) as { id: string }).id;
   const canc = await inject({
     method: 'POST',
@@ -162,7 +167,7 @@ async function runChecks(): Promise<void> {
     method: 'POST',
     url: '/ucp/checkout-sessions',
     headers: JA,
-    body: '{}',
+    body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
   });
   check('EP-07 /ucp/ prefix must NOT exist', old.statusCode === 404, `${old.statusCode}`);
 
@@ -516,7 +521,7 @@ async function runChecks(): Promise<void> {
     method: 'PATCH',
     url: '/checkout-sessions/test',
     headers: JA,
-    body: '{}',
+    body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
   });
   check(
     'MT-01 PATCH must NOT exist',
