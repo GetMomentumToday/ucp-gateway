@@ -69,7 +69,10 @@ function extractLineItemUnitPrice(item: ShopwareCartLineItem): number {
   return item.price ? grossPriceToCents(item.price.unitPrice) : 0;
 }
 
-export function mapShopwareCartToTotals(response: ShopwareCartResponse, _currency: string): readonly Total[] {
+export function mapShopwareCartToTotals(
+  response: ShopwareCartResponse,
+  _currency: string,
+): readonly Total[] {
   const taxCents = sumCalculatedTaxes(response);
   return [
     { type: 'subtotal', amount: grossPriceToCents(response.price.positionPrice) },
@@ -80,10 +83,7 @@ export function mapShopwareCartToTotals(response: ShopwareCartResponse, _currenc
 }
 
 function sumCalculatedTaxes(response: ShopwareCartResponse): number {
-  return response.price.calculatedTaxes.reduce(
-    (sum, t) => sum + grossPriceToCents(t.tax),
-    0,
-  );
+  return response.price.calculatedTaxes.reduce((sum, t) => sum + grossPriceToCents(t.tax), 0);
 }
 
 function computeShippingCents(response: ShopwareCartResponse): number {
@@ -102,13 +102,15 @@ export function mapShopwareOrder(response: ShopwareOrderResponse, currency: stri
   };
 }
 
-function mapOrderStatus(
-  technicalName: string | undefined,
-): Order['status'] {
+function mapOrderStatus(technicalName: string | undefined): Order['status'] {
   switch (technicalName) {
-    case 'completed': return 'delivered';
-    case 'in_progress': return 'processing';
-    case 'cancelled': return 'cancelled';
-    default: return 'pending';
+    case 'completed':
+      return 'delivered';
+    case 'in_progress':
+      return 'processing';
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return 'pending';
   }
 }

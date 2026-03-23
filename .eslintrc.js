@@ -22,7 +22,7 @@ module.exports = {
     '@typescript-eslint/await-thenable': 'error',
     '@typescript-eslint/require-await': 'off',
     'no-console': ['warn', { allow: ['warn', 'error'] }],
-    'eqeqeq': ['error', 'always'],
+    eqeqeq: ['error', 'always'],
     'no-var': 'error',
     'prefer-const': 'error',
   },

@@ -62,6 +62,7 @@ We follow **Test-Driven Development**:
 4. Ensure coverage stays ≥ 80 %
 
 Branch naming:
+
 - `feat/<ticket-id>-short-description`
 - `fix/<ticket-id>-short-description`
 - `chore/<description>`
@@ -101,6 +102,7 @@ After the issue is approved, follow the adapter implementation guide in `package
 - **No hardcoded values** — use environment variables or constants
 
 Run linting and formatting:
+
 ```bash
 npm run lint:fix
 npm run format
@@ -123,6 +125,7 @@ npm run format
 Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
 
 Examples:
+
 ```
 feat: add Shopify Storefront GraphQL adapter
 fix: handle empty cart in order creation

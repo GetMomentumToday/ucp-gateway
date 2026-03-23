@@ -45,13 +45,15 @@ export class MagentoAdapter implements PlatformAdapter {
       ucp: {
         version: '2026-01-23',
         services: {
-          'dev.ucp.shopping': [{
-            version: '2026-01-23',
-            spec: 'https://ucp.dev/latest/specification/checkout/',
-            endpoint: '/checkout-sessions',
-            schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
-            transport: 'rest',
-          }],
+          'dev.ucp.shopping': [
+            {
+              version: '2026-01-23',
+              spec: 'https://ucp.dev/latest/specification/checkout/',
+              endpoint: '/checkout-sessions',
+              schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
+              transport: 'rest',
+            },
+          ],
         },
         capabilities: {
           'dev.ucp.shopping.checkout': [{ version: '2026-01-23' }],
@@ -140,12 +142,9 @@ export class MagentoAdapter implements PlatformAdapter {
     cartId: string,
     address: Record<string, unknown>,
   ): Promise<void> {
-    await this.post<number>(
-      `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/billing-address`,
-      {
-        address: { ...address, email: 'guest@ucp-middleware.local' },
-      },
-    );
+    await this.post<number>(`/rest/V1/guest-carts/${encodeURIComponent(cartId)}/billing-address`, {
+      address: { ...address, email: 'guest@ucp-middleware.local' },
+    });
   }
 
   async placeOrder(cartId: string, _payment: PaymentToken): Promise<Order> {
@@ -161,9 +160,13 @@ export class MagentoAdapter implements PlatformAdapter {
 
   async getOrder(id: string): Promise<Order> {
     try {
-      const order = await this.get<{ entity_id: number; status: string; grand_total: number; base_currency_code: string; created_at: string }>(
-        `/rest/V1/orders/${encodeURIComponent(id)}`,
-      );
+      const order = await this.get<{
+        entity_id: number;
+        status: string;
+        grand_total: number;
+        base_currency_code: string;
+        created_at: string;
+      }>(`/rest/V1/orders/${encodeURIComponent(id)}`);
       return {
         id: String(order.entity_id),
         status: mapMagentoOrderStatus(order.status),
@@ -192,8 +195,8 @@ export class MagentoAdapter implements PlatformAdapter {
     const response = await fetch(url, {
       method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${this.config.apiKey}`,
-        'Accept': 'application/json',
+        Authorization: `Bearer ${this.config.apiKey}`,
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -202,7 +205,11 @@ export class MagentoAdapter implements PlatformAdapter {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new AdapterError('PLATFORM_ERROR', `Magento API error ${response.status}: ${text}`, response.status);
+      throw new AdapterError(
+        'PLATFORM_ERROR',
+        `Magento API error ${response.status}: ${text}`,
+        response.status,
+      );
     }
 
     return (await response.json()) as T;
@@ -212,8 +219,8 @@ export class MagentoAdapter implements PlatformAdapter {
     return {
       baseUrl: this.config.storeUrl,
       headers: {
-        'Authorization': `Bearer ${this.config.apiKey}`,
-        'Accept': 'application/json',
+        Authorization: `Bearer ${this.config.apiKey}`,
+        Accept: 'application/json',
       },
     };
   }

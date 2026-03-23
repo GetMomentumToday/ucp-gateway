@@ -22,7 +22,10 @@ export class AdapterError extends Error {
   }
 }
 
-export function notFound(code: 'PRODUCT_NOT_FOUND' | 'ORDER_NOT_FOUND' | 'CART_NOT_FOUND', id: string): AdapterError {
+export function notFound(
+  code: 'PRODUCT_NOT_FOUND' | 'ORDER_NOT_FOUND' | 'CART_NOT_FOUND',
+  id: string,
+): AdapterError {
   return new AdapterError(code, `${code}: ${id}`, 404);
 }
 

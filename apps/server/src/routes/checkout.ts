@@ -30,17 +30,21 @@ const lineItemSchema = z.object({
 
 const createSessionSchema = z.object({
   line_items: z.array(lineItemSchema).optional(),
-  buyer: z.object({
-    first_name: z.string().optional(),
-    last_name: z.string().optional(),
-    email: z.string().email().optional(),
-    phone_number: z.string().optional(),
-  }).optional(),
-  context: z.object({
-    address_country: z.string().optional(),
-    address_region: z.string().optional(),
-    postal_code: z.string().optional(),
-  }).optional(),
+  buyer: z
+    .object({
+      first_name: z.string().optional(),
+      last_name: z.string().optional(),
+      email: z.string().email().optional(),
+      phone_number: z.string().optional(),
+    })
+    .optional(),
+  context: z
+    .object({
+      address_country: z.string().optional(),
+      address_region: z.string().optional(),
+      postal_code: z.string().optional(),
+    })
+    .optional(),
   payment: z.unknown().optional(),
   idempotency_key: z.string().min(1).optional(),
 });
@@ -48,19 +52,23 @@ const createSessionSchema = z.object({
 const updateSessionSchema = z.object({
   id: z.string().min(1),
   line_items: z.array(lineItemSchema).optional(),
-  buyer: z.object({
-    first_name: z.string().optional(),
-    last_name: z.string().optional(),
-    email: z.string().email().optional(),
-    phone_number: z.string().optional(),
-    shipping_address: postalAddressSchema.optional(),
-    billing_address: postalAddressSchema.optional(),
-  }).optional(),
-  context: z.object({
-    address_country: z.string().optional(),
-    address_region: z.string().optional(),
-    postal_code: z.string().optional(),
-  }).optional(),
+  buyer: z
+    .object({
+      first_name: z.string().optional(),
+      last_name: z.string().optional(),
+      email: z.string().email().optional(),
+      phone_number: z.string().optional(),
+      shipping_address: postalAddressSchema.optional(),
+      billing_address: postalAddressSchema.optional(),
+    })
+    .optional(),
+  context: z
+    .object({
+      address_country: z.string().optional(),
+      address_region: z.string().optional(),
+      postal_code: z.string().optional(),
+    })
+    .optional(),
   payment: z.unknown().optional(),
 });
 
@@ -90,7 +98,9 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
 
     if (parsed.data.idempotency_key) {
       const existingId = await findExistingSessionByIdempotencyKey(
-        redis, request.tenant.id, parsed.data.idempotency_key,
+        redis,
+        request.tenant.id,
+        parsed.data.idempotency_key,
       );
       if (existingId) {
         const existing = await sessionStore.get(existingId);
@@ -105,12 +115,18 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
     if (parsed.data.buyer) updateFields['buyer'] = parsed.data.buyer;
     if (parsed.data.idempotency_key) updateFields['idempotency_key'] = parsed.data.idempotency_key;
 
-    const result = Object.keys(updateFields).length > 0
-      ? await sessionStore.update(session.id, updateFields)
-      : session;
+    const result =
+      Object.keys(updateFields).length > 0
+        ? await sessionStore.update(session.id, updateFields)
+        : session;
 
     if (parsed.data.idempotency_key) {
-      await storeIdempotencyMapping(redis, request.tenant.id, parsed.data.idempotency_key, session.id);
+      await storeIdempotencyMapping(
+        redis,
+        request.tenant.id,
+        parsed.data.idempotency_key,
+        session.id,
+      );
     }
 
     return sendPublic(reply, 201, result ?? session);
@@ -125,21 +141,36 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       const sessionStore = app.container.resolve('sessionStore');
       const session = await sessionStore.get(request.params.id);
 
-      if (!session) return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
-      if (isSessionExpired(session)) return sendSessionError(reply, 'SESSION_EXPIRED', 'Checkout session has expired', 410);
-      if (session.status !== 'incomplete') return sendSessionError(reply, 'INVALID_SESSION_STATE', `Cannot modify session in state: ${session.status}`, 409);
-      if (!isSessionOwnedByTenant(session, request.tenant)) return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
+      if (!session)
+        return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
+      if (isSessionExpired(session))
+        return sendSessionError(reply, 'SESSION_EXPIRED', 'Checkout session has expired', 410);
+      if (session.status !== 'incomplete')
+        return sendSessionError(
+          reply,
+          'INVALID_SESSION_STATE',
+          `Cannot modify session in state: ${session.status}`,
+          409,
+        );
+      if (!isSessionOwnedByTenant(session, request.tenant))
+        return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
 
       const updateData: Record<string, unknown> = {};
       if (parsed.data.line_items) updateData['line_items'] = parsed.data.line_items;
       if (parsed.data.buyer) {
         updateData['buyer'] = parsed.data.buyer;
-        if (parsed.data.buyer.shipping_address) updateData['shipping_address'] = parsed.data.buyer.shipping_address;
-        if (parsed.data.buyer.billing_address) updateData['billing_address'] = parsed.data.buyer.billing_address;
+        if (parsed.data.buyer.shipping_address)
+          updateData['shipping_address'] = parsed.data.buyer.shipping_address;
+        if (parsed.data.buyer.billing_address)
+          updateData['billing_address'] = parsed.data.buyer.billing_address;
       }
 
       if (updateData['shipping_address']) {
-        const totals = await calculateTotalsWithFallback(request, session, updateData['shipping_address'] as z.infer<typeof postalAddressSchema>);
+        const totals = await calculateTotalsWithFallback(
+          request,
+          session,
+          updateData['shipping_address'] as z.infer<typeof postalAddressSchema>,
+        );
         if (totals) updateData['totals'] = totals;
         updateData['status'] = 'ready_for_complete';
       }
@@ -158,11 +189,20 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       const sessionStore = app.container.resolve('sessionStore');
       const session = await sessionStore.get(request.params.id);
 
-      if (!session) return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
-      if (isSessionExpired(session)) return sendSessionError(reply, 'SESSION_EXPIRED', 'Checkout session has expired', 410);
+      if (!session)
+        return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
+      if (isSessionExpired(session))
+        return sendSessionError(reply, 'SESSION_EXPIRED', 'Checkout session has expired', 410);
       if (hasSessionAlreadyCompleted(session)) return sendPublic(reply, 200, session);
-      if (session.status !== 'ready_for_complete') return sendSessionError(reply, 'INVALID_SESSION_STATE', `Session must be in ready_for_complete state, got: ${session.status}`, 409);
-      if (!isSessionOwnedByTenant(session, request.tenant)) return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
+      if (session.status !== 'ready_for_complete')
+        return sendSessionError(
+          reply,
+          'INVALID_SESSION_STATE',
+          `Session must be in ready_for_complete state, got: ${session.status}`,
+          409,
+        );
+      if (!isSessionOwnedByTenant(session, request.tenant))
+        return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
 
       const cartId = session.cart_id ?? '';
 
@@ -195,9 +235,17 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       const sessionStore = app.container.resolve('sessionStore');
       const session = await sessionStore.get(request.params.id);
 
-      if (!session) return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
-      if (!isSessionOwnedByTenant(session, request.tenant)) return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
-      if (session.status === 'completed') return sendSessionError(reply, 'INVALID_SESSION_STATE', 'Cannot cancel a completed session', 409);
+      if (!session)
+        return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
+      if (!isSessionOwnedByTenant(session, request.tenant))
+        return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
+      if (session.status === 'completed')
+        return sendSessionError(
+          reply,
+          'INVALID_SESSION_STATE',
+          'Cannot cancel a completed session',
+          409,
+        );
       if (session.status === 'cancelled') return sendPublic(reply, 200, session);
 
       const cancelled = await sessionStore.update(request.params.id, { status: 'cancelled' });
@@ -211,27 +259,26 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       const sessionStore = app.container.resolve('sessionStore');
       const session = await sessionStore.get(request.params.id);
 
-      if (!session) return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
-      if (!isSessionOwnedByTenant(session, request.tenant)) return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
+      if (!session)
+        return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
+      if (!isSessionOwnedByTenant(session, request.tenant))
+        return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
 
       return sendPublic(reply, 200, session);
     },
   );
 
-  app.get<{ Params: { id: string } }>(
-    '/orders/:id',
-    async (request, reply: FastifyReply) => {
-      try {
-        const order = await request.adapter.getOrder(request.params.id);
-        return reply.status(200).send(order);
-      } catch (err: unknown) {
-        if (err instanceof AdapterError && err.code === 'ORDER_NOT_FOUND') {
-          return sendSessionError(reply, 'missing', `Order not found: ${request.params.id}`, 404);
-        }
-        throw err;
+  app.get<{ Params: { id: string } }>('/orders/:id', async (request, reply: FastifyReply) => {
+    try {
+      const order = await request.adapter.getOrder(request.params.id);
+      return reply.status(200).send(order);
+    } catch (err: unknown) {
+      if (err instanceof AdapterError && err.code === 'ORDER_NOT_FOUND') {
+        return sendSessionError(reply, 'missing', `Order not found: ${request.params.id}`, 404);
       }
-    },
-  );
+      throw err;
+    }
+  });
 }
 
 async function calculateTotalsWithFallback(

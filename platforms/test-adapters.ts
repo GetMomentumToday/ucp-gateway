@@ -29,7 +29,7 @@ async function testMagento(): Promise<void> {
   // getProfile
   const profile = await adapter.getProfile();
   console.log(`  Profile: ${profile.name} (UCP ${profile.ucp})`);
-  console.log(`  Capabilities: ${profile.capabilities.map(c => c.name).join(', ')}`);
+  console.log(`  Capabilities: ${profile.capabilities.map((c) => c.name).join(', ')}`);
 
   // searchProducts
   const products = await adapter.searchProducts({ q: 'shoes' });
@@ -71,18 +71,18 @@ async function testShopware(): Promise<void> {
       password: 'shopware',
     }),
   });
-  const tokenData = await tokenRes.json() as { access_token: string };
+  const tokenData = (await tokenRes.json()) as { access_token: string };
 
   // Get sales channel access key
   const scRes = await fetch('http://localhost:8888/api/search/sales-channel', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${tokenData.access_token}`,
+      Authorization: `Bearer ${tokenData.access_token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ limit: 1 }),
   });
-  const scData = await scRes.json() as { data: { attributes: { accessKey: string } }[] };
+  const scData = (await scRes.json()) as { data: { attributes: { accessKey: string } }[] };
   const accessKey = scData.data[0]?.attributes?.accessKey;
 
   if (!accessKey) {
@@ -100,7 +100,9 @@ async function testShopware(): Promise<void> {
   const products = await adapter.searchProducts({ q: 'Shoes' });
   console.log(`  Search "Shoes": ${products.length} products`);
   for (const p of products) {
-    console.log(`    ${p.id.slice(0, 20).padEnd(20)} ${p.title.padEnd(25)} $${(p.price / 100).toFixed(2)}`);
+    console.log(
+      `    ${p.id.slice(0, 20).padEnd(20)} ${p.title.padEnd(25)} $${(p.price / 100).toFixed(2)}`,
+    );
   }
 
   // getProduct

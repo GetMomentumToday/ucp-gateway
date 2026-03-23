@@ -53,10 +53,13 @@ export class MockAdapter implements PlatformAdapter {
     const page = query.page ?? 1;
 
     let filtered = MOCK_PRODUCTS.filter((p) => {
-      const matchesText = p.title.toLowerCase().includes(q) || (p.description?.toLowerCase().includes(q) ?? false);
+      const matchesText =
+        p.title.toLowerCase().includes(q) || (p.description?.toLowerCase().includes(q) ?? false);
       const matchesStock = query.in_stock === undefined || p.in_stock === query.in_stock;
-      const matchesMinPrice = query.min_price_cents === undefined || p.price_cents >= query.min_price_cents;
-      const matchesMaxPrice = query.max_price_cents === undefined || p.price_cents <= query.max_price_cents;
+      const matchesMinPrice =
+        query.min_price_cents === undefined || p.price_cents >= query.min_price_cents;
+      const matchesMaxPrice =
+        query.max_price_cents === undefined || p.price_cents <= query.max_price_cents;
       return matchesText && matchesStock && matchesMinPrice && matchesMaxPrice;
     });
 
@@ -108,7 +111,10 @@ export class MockAdapter implements PlatformAdapter {
       throw notFound('CART_NOT_FOUND', cartId);
     }
 
-    const subtotalCents = cart.items.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0);
+    const subtotalCents = cart.items.reduce(
+      (sum, item) => sum + item.unit_price_cents * item.quantity,
+      0,
+    );
     const shippingCents = FLAT_SHIPPING_CENTS;
     const taxCents = Math.round(subtotalCents * TAX_RATE);
     const totalCents = subtotalCents + shippingCents + taxCents;

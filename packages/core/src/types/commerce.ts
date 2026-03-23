@@ -94,7 +94,14 @@ export interface Total {
   readonly display_text?: string | undefined;
 }
 
-export type TotalType = 'items_discount' | 'subtotal' | 'discount' | 'fulfillment' | 'tax' | 'fee' | 'total';
+export type TotalType =
+  | 'items_discount'
+  | 'subtotal'
+  | 'discount'
+  | 'fulfillment'
+  | 'tax'
+  | 'fee'
+  | 'total';
 
 export interface PostalAddress {
   readonly first_name?: string | undefined;

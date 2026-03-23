@@ -1,6 +1,13 @@
 import crypto from 'node:crypto';
 import type { Redis as RedisType } from 'ioredis';
-import type { PostalAddress, Total, CheckoutLink, OrderConfirmation, Buyer, UCPMessage } from '../types/commerce.js';
+import type {
+  PostalAddress,
+  Total,
+  CheckoutLink,
+  OrderConfirmation,
+  Buyer,
+  UCPMessage,
+} from '../types/commerce.js';
 import type { EscalationDetails } from '../types/errors.js';
 
 export type SessionStatus =
@@ -12,7 +19,11 @@ export type SessionStatus =
   | 'requires_escalation';
 
 export interface CheckoutSessionLineItem {
-  readonly item: { readonly id: string; readonly title?: string | undefined; readonly price?: number | undefined };
+  readonly item: {
+    readonly id: string;
+    readonly title?: string | undefined;
+    readonly price?: number | undefined;
+  };
   readonly quantity: number;
 }
 
@@ -38,9 +49,7 @@ export interface CheckoutSession {
 }
 
 /** Fields that may be provided when updating a session. */
-export type UpdateSessionData = Partial<
-  Omit<CheckoutSession, 'id' | 'tenant_id' | 'created_at'>
->;
+export type UpdateSessionData = Partial<Omit<CheckoutSession, 'id' | 'tenant_id' | 'created_at'>>;
 
 const KEY_PREFIX = 'session:';
 const DEFAULT_TTL_SECONDS = 21600;
@@ -52,7 +61,10 @@ export class SessionStore {
     this.redis = redis;
   }
 
-  async create(tenantId: string, ttlSeconds: number = DEFAULT_TTL_SECONDS): Promise<CheckoutSession> {
+  async create(
+    tenantId: string,
+    ttlSeconds: number = DEFAULT_TTL_SECONDS,
+  ): Promise<CheckoutSession> {
     const id = crypto.randomUUID();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlSeconds * 1000);

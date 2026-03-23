@@ -33,6 +33,6 @@ Your Contributions are provided "AS IS" without warranty of any kind.
 
 By adding your name below (via pull request), you confirm that you have read and agree to this CLA.
 
-| Name | GitHub Handle | Date |
-|------|--------------|------|
+| Name             | GitHub Handle     | Date       |
+| ---------------- | ----------------- | ---------- |
 | Artemii Karkusha | @artemii-karkusha | 2024-01-01 |
