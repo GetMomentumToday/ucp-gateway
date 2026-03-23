@@ -16,7 +16,7 @@ const app = await buildApp({ container });
 const shutdown = async (signal: string): Promise<void> => {
   app.log.info(`Received ${signal}, shutting down gracefully…`);
   await app.close();
-  container.dispose();
+  await container.dispose();
   process.exit(0);
 };
 

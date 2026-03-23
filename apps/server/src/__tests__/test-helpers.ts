@@ -19,7 +19,7 @@ import {
   SessionStore,
   TenantRepository,
   createDb,
-  type Database,
+
 } from '@ucp-middleware/core';
 import { MockAdapter } from '@ucp-middleware/adapters';
 import type { Cradle } from '../container/index.js';
