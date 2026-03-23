@@ -19,6 +19,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@ucp-js/sdk": "^0.1.0",
     "drizzle-orm": "^0.30.0",
     "ioredis": "^5.4.0",
     "postgres": "^3.4.0"

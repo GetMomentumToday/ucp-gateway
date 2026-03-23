@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { BillingAddressClassSchema, BuyerClassSchema, PaymentCredentialSchema } from '@ucp-js/sdk';
 import { AdapterError, EscalationRequiredError, type CheckoutSession } from '@ucp-gateway/core';
 import {
   sendSessionError,
@@ -11,17 +12,18 @@ import {
 } from './checkout-helpers.js';
 import { toPublicCheckoutResponse } from './checkout-response.js';
 
-const postalAddressSchema = z.object({
-  first_name: z.string().min(1).optional(),
-  last_name: z.string().min(1).optional(),
-  street_address: z.string().min(1).optional(),
-  extended_address: z.string().optional(),
-  address_locality: z.string().min(1).optional(),
-  address_region: z.string().optional(),
-  postal_code: z.string().min(1).optional(),
-  address_country: z.string().length(2).optional(),
-  phone_number: z.string().optional(),
-});
+/* ---------------------------------------------------------------------------
+ * Request-validation schemas
+ *
+ * We derive these from the official @ucp-js/sdk primitives (BuyerClassSchema,
+ * BillingAddressClassSchema, PaymentCredentialSchema) but keep them lenient
+ * (most fields optional) so that existing callers and tests continue to work.
+ *
+ * Response validation uses the full ExtendedCheckoutResponseSchema — see
+ * checkout-response.ts.
+ * ------------------------------------------------------------------------- */
+
+const postalAddressSchema = BillingAddressClassSchema;
 
 const lineItemSchema = z.object({
   item: z.object({ id: z.string().min(1) }),
@@ -33,29 +35,37 @@ const instrumentSchema = z.object({
   handler_id: z.string().min(1),
   type: z.string().min(1),
   selected: z.boolean().optional(),
-  credential: z
-    .object({ type: z.string().min(1) })
-    .passthrough()
-    .optional(),
+  credential: PaymentCredentialSchema.partial().optional(),
   billing_address: postalAddressSchema.optional(),
 });
 
+const paymentHandlerSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    version: z.string(),
+    spec: z.string().optional(),
+    config_schema: z.string().optional(),
+    instrument_schemas: z.array(z.string()).optional(),
+    config: z.record(z.unknown()).optional(),
+  })
+  .passthrough();
+
 const paymentSchema = z
   .object({
-    instruments: z.array(instrumentSchema).min(1),
+    instruments: z.array(instrumentSchema).optional(),
+    handlers: z.array(paymentHandlerSchema).optional(),
   })
+  .passthrough()
   .optional();
 
 const createSessionSchema = z.object({
-  line_items: z.array(lineItemSchema).optional(),
-  buyer: z
-    .object({
-      first_name: z.string().optional(),
-      last_name: z.string().optional(),
-      email: z.string().email().optional(),
-      phone_number: z.string().optional(),
-    })
-    .optional(),
+  line_items: z.array(lineItemSchema),
+  currency: z.string().optional(),
+  buyer: BuyerClassSchema.extend({
+    shipping_address: postalAddressSchema.optional(),
+    billing_address: postalAddressSchema.optional(),
+  }).optional(),
   context: z
     .object({
       address_country: z.string().optional(),
@@ -67,18 +77,13 @@ const createSessionSchema = z.object({
 });
 
 const updateSessionSchema = z.object({
-  id: z.string().min(1),
-  line_items: z.array(lineItemSchema).optional(),
-  buyer: z
-    .object({
-      first_name: z.string().optional(),
-      last_name: z.string().optional(),
-      email: z.string().email().optional(),
-      phone_number: z.string().optional(),
-      shipping_address: postalAddressSchema.optional(),
-      billing_address: postalAddressSchema.optional(),
-    })
-    .optional(),
+  id: z.string().optional(),
+  line_items: z.array(lineItemSchema),
+  currency: z.string().optional(),
+  buyer: BuyerClassSchema.extend({
+    shipping_address: postalAddressSchema.optional(),
+    billing_address: postalAddressSchema.optional(),
+  }).optional(),
   context: z
     .object({
       address_country: z.string().optional(),
@@ -128,15 +133,15 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
     const session = await sessionStore.create(request.tenant.id);
 
     const updateFields: Record<string, unknown> = {};
-    if (parsed.data.line_items) {
-      updateFields['line_items'] = parsed.data.line_items.map((li, index) => ({
-        id: `li-${index}`,
-        item: li.item,
-        quantity: li.quantity,
-        totals: [],
-      }));
-    }
+    updateFields['line_items'] = parsed.data.line_items.map((li, index) => ({
+      id: `li-${index}`,
+      item: li.item,
+      quantity: li.quantity,
+      totals: [],
+    }));
+    if (parsed.data.currency) updateFields['currency'] = parsed.data.currency;
     if (parsed.data.buyer) updateFields['buyer'] = parsed.data.buyer;
+    if (parsed.data.payment) updateFields['payment'] = parsed.data.payment;
 
     const result =
       Object.keys(updateFields).length > 0
@@ -236,7 +241,7 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       if (isSessionExpired(session))
         return sendSessionError(reply, 'SESSION_EXPIRED', 'Checkout session has expired', 410);
       if (hasSessionAlreadyCompleted(session)) return sendPublic(reply, 200, session);
-      if (session.status !== 'ready_for_complete')
+      if (session.status !== 'ready_for_complete' && session.status !== 'complete_in_progress')
         return sendSessionError(
           reply,
           'INVALID_SESSION_STATE',

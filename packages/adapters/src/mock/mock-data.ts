@@ -40,6 +40,25 @@ export const MOCK_PROFILE: UCPProfile = {
 
 export const MOCK_PRODUCTS: readonly Product[] = [
   {
+    id: 'bouquet_roses',
+    title: 'Red Rose',
+    description: 'A beautiful bouquet of red roses.',
+    price_cents: 3500,
+    currency: 'USD',
+    in_stock: true,
+    stock_quantity: 100,
+    images: ['https://mock.store/images/bouquet-roses-1.jpg'],
+    variants: [
+      {
+        id: 'var-roses-a',
+        title: 'Standard',
+        price_cents: 3500,
+        in_stock: true,
+        attributes: { size: 'standard' },
+      },
+    ],
+  },
+  {
     id: 'prod-001',
     title: 'Running Shoes Pro',
     description: 'High-performance running shoes with advanced cushioning.',
