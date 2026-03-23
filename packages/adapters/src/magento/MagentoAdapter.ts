@@ -241,8 +241,8 @@ function mapMagentoOrderStatus(magentoStatus: string): Order['status'] {
     pending: 'pending',
     processing: 'processing',
     complete: 'delivered',
-    closed: 'cancelled',
-    canceled: 'cancelled',
+    closed: 'canceled',
+    canceled: 'canceled',
     holded: 'pending',
   };
   return statusMap[magentoStatus] ?? 'processing';

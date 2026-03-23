@@ -28,6 +28,24 @@ const lineItemSchema = z.object({
   quantity: z.coerce.number().int().min(1),
 });
 
+const instrumentSchema = z.object({
+  id: z.string().min(1),
+  handler_id: z.string().min(1),
+  type: z.string().min(1),
+  selected: z.boolean().optional(),
+  credential: z
+    .object({ type: z.string().min(1) })
+    .passthrough()
+    .optional(),
+  billing_address: postalAddressSchema.optional(),
+});
+
+const paymentSchema = z
+  .object({
+    instruments: z.array(instrumentSchema).min(1),
+  })
+  .optional();
+
 const createSessionSchema = z.object({
   line_items: z.array(lineItemSchema).optional(),
   buyer: z
@@ -45,8 +63,7 @@ const createSessionSchema = z.object({
       postal_code: z.string().optional(),
     })
     .optional(),
-  payment: z.unknown().optional(),
-  idempotency_key: z.string().min(1).optional(),
+  payment: paymentSchema,
 });
 
 const updateSessionSchema = z.object({
@@ -69,14 +86,14 @@ const updateSessionSchema = z.object({
       postal_code: z.string().optional(),
     })
     .optional(),
-  payment: z.unknown().optional(),
+  payment: paymentSchema,
 });
 
 const completeSessionSchema = z.object({
   payment: z.object({
-    token: z.string().min(1),
-    provider: z.string().min(1),
+    instruments: z.array(instrumentSchema).min(1),
   }),
+  risk_signals: z.record(z.string()).optional(),
 });
 
 function sendValidationError(reply: FastifyReply, error: z.ZodError): FastifyReply {
@@ -95,12 +112,13 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
 
     const sessionStore = app.container.resolve('sessionStore');
     const redis = app.container.resolve('redis');
+    const idempotencyKey = request.headers['idempotency-key'] as string | undefined;
 
-    if (parsed.data.idempotency_key) {
+    if (idempotencyKey) {
       const existingId = await findExistingSessionByIdempotencyKey(
         redis,
         request.tenant.id,
-        parsed.data.idempotency_key,
+        idempotencyKey,
       );
       if (existingId) {
         const existing = await sessionStore.get(existingId);
@@ -111,22 +129,24 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
     const session = await sessionStore.create(request.tenant.id);
 
     const updateFields: Record<string, unknown> = {};
-    if (parsed.data.line_items) updateFields['line_items'] = parsed.data.line_items;
+    if (parsed.data.line_items) {
+      updateFields['line_items'] = parsed.data.line_items.map((li, index) => ({
+        id: `li-${index}`,
+        item: li.item,
+        quantity: li.quantity,
+        totals: [],
+      }));
+    }
     if (parsed.data.buyer) updateFields['buyer'] = parsed.data.buyer;
-    if (parsed.data.idempotency_key) updateFields['idempotency_key'] = parsed.data.idempotency_key;
+    if (idempotencyKey) updateFields['idempotency_key'] = idempotencyKey;
 
     const result =
       Object.keys(updateFields).length > 0
         ? await sessionStore.update(session.id, updateFields)
         : session;
 
-    if (parsed.data.idempotency_key) {
-      await storeIdempotencyMapping(
-        redis,
-        request.tenant.id,
-        parsed.data.idempotency_key,
-        session.id,
-      );
+    if (idempotencyKey) {
+      await storeIdempotencyMapping(redis, request.tenant.id, idempotencyKey, session.id);
     }
 
     return sendPublic(reply, 201, result ?? session);
@@ -156,7 +176,14 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
         return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
 
       const updateData: Record<string, unknown> = {};
-      if (parsed.data.line_items) updateData['line_items'] = parsed.data.line_items;
+      if (parsed.data.line_items) {
+        updateData['line_items'] = parsed.data.line_items.map((li, index) => ({
+          id: `li-${index}`,
+          item: li.item,
+          quantity: li.quantity,
+          totals: [],
+        }));
+      }
       if (parsed.data.buyer) {
         updateData['buyer'] = parsed.data.buyer;
         if (parsed.data.buyer.shipping_address)
@@ -206,12 +233,24 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
 
       const cartId = session.cart_id ?? '';
 
+      await sessionStore.update(request.params.id, { status: 'complete_in_progress' });
+
       try {
-        const placedOrder = await request.adapter.placeOrder(cartId, parsed.data.payment);
+        const selectedInstrument =
+          parsed.data.payment.instruments.find((i) => i.selected) ??
+          parsed.data.payment.instruments[0]!;
+        const paymentToken = {
+          token: selectedInstrument.credential?.type ?? selectedInstrument.id,
+          provider: selectedInstrument.handler_id,
+        };
+        const placedOrder = await request.adapter.placeOrder(cartId, paymentToken);
 
         const completed = await sessionStore.update(request.params.id, {
           status: 'completed',
-          order: { id: placedOrder.id, permalink_url: '' },
+          order: {
+            id: placedOrder.id,
+            permalink_url: `https://${request.tenant.domain}/orders/${placedOrder.id}`,
+          },
         });
 
         return sendPublic(reply, 200, completed ?? session);
@@ -246,10 +285,10 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
           'Cannot cancel a completed session',
           409,
         );
-      if (session.status === 'cancelled') return sendPublic(reply, 200, session);
+      if (session.status === 'canceled') return sendPublic(reply, 200, session);
 
-      const cancelled = await sessionStore.update(request.params.id, { status: 'cancelled' });
-      return sendPublic(reply, 200, cancelled ?? session);
+      const canceled = await sessionStore.update(request.params.id, { status: 'canceled' });
+      return sendPublic(reply, 200, canceled ?? session);
     },
   );
 

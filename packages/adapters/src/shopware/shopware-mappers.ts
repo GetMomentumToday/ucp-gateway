@@ -108,8 +108,8 @@ function mapOrderStatus(technicalName: string | undefined): Order['status'] {
       return 'delivered';
     case 'in_progress':
       return 'processing';
-    case 'cancelled':
-      return 'cancelled';
+    case 'canceled':
+      return 'canceled';
     default:
       return 'pending';
   }

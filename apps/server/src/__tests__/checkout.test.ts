@@ -81,7 +81,19 @@ describe('E2E Checkout: MockAdapter full flow', () => {
       method: 'POST',
       url: `/checkout-sessions/${session.id}/complete`,
       headers: { ...HEADERS, 'content-type': 'application/json' },
-      body: JSON.stringify({ payment: { token: 'tok_test_123', provider: 'mock' } }),
+      body: JSON.stringify({
+        payment: {
+          instruments: [
+            {
+              id: 'inst-1',
+              handler_id: 'mock',
+              type: 'card',
+              selected: true,
+              credential: { type: 'test_token' },
+            },
+          ],
+        },
+      }),
     });
     expect(completeRes.statusCode).toBe(200);
     const completed = JSON.parse(completeRes.body) as {
@@ -131,7 +143,19 @@ describe('E2E Checkout: MockAdapter full flow', () => {
       method: 'POST',
       url: `/checkout-sessions/${session.id}/complete`,
       headers: { ...HEADERS, 'content-type': 'application/json' },
-      body: JSON.stringify({ payment: { token: 'tok_456', provider: 'mock' } }),
+      body: JSON.stringify({
+        payment: {
+          instruments: [
+            {
+              id: 'inst-1',
+              handler_id: 'mock',
+              type: 'card',
+              selected: true,
+              credential: { type: 'test_token' },
+            },
+          ],
+        },
+      }),
     });
     const first = JSON.parse(c1.body) as { order: { id: string } };
 
@@ -139,14 +163,26 @@ describe('E2E Checkout: MockAdapter full flow', () => {
       method: 'POST',
       url: `/checkout-sessions/${session.id}/complete`,
       headers: { ...HEADERS, 'content-type': 'application/json' },
-      body: JSON.stringify({ payment: { token: 'tok_456', provider: 'mock' } }),
+      body: JSON.stringify({
+        payment: {
+          instruments: [
+            {
+              id: 'inst-1',
+              handler_id: 'mock',
+              type: 'card',
+              selected: true,
+              credential: { type: 'test_token' },
+            },
+          ],
+        },
+      }),
     });
     expect(c2.statusCode).toBe(200);
     const second = JSON.parse(c2.body) as { order: { id: string } };
     expect(second.order.id).toBe(first.order.id);
   });
 
-  it('POST /cancel returns cancelled status', async () => {
+  it('POST /cancel returns canceled status', async () => {
     const createRes = await app.inject({
       method: 'POST',
       url: '/checkout-sessions',
@@ -161,8 +197,8 @@ describe('E2E Checkout: MockAdapter full flow', () => {
       headers: HEADERS,
     });
     expect(cancelRes.statusCode).toBe(200);
-    const cancelled = JSON.parse(cancelRes.body) as { status: string };
-    expect(cancelled.status).toBe('cancelled');
+    const canceled = JSON.parse(cancelRes.body) as { status: string };
+    expect(canceled.status).toBe('canceled');
   });
 
   it('GET /checkout-sessions/:id returns session with ucp envelope', async () => {
@@ -213,7 +249,19 @@ describe('E2E Checkout: MockAdapter full flow', () => {
       method: 'POST',
       url: `/checkout-sessions/${session.id}/complete`,
       headers: { ...HEADERS, 'content-type': 'application/json' },
-      body: JSON.stringify({ payment: { token: 'tok_test', provider: 'mock' } }),
+      body: JSON.stringify({
+        payment: {
+          instruments: [
+            {
+              id: 'inst-1',
+              handler_id: 'mock',
+              type: 'card',
+              selected: true,
+              credential: { type: 'test_token' },
+            },
+          ],
+        },
+      }),
     });
     expect(res.statusCode).toBe(409);
     const body = JSON.parse(res.body) as { messages: { code: string }[] };

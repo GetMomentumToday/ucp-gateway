@@ -126,7 +126,19 @@ async function runChecks(): Promise<void> {
     method: 'POST',
     url: `/checkout-sessions/${sidC}/complete`,
     headers: JA,
-    body: JSON.stringify({ payment: { token: 'tok', provider: 'mock' } }),
+    body: JSON.stringify({
+      payment: {
+        instruments: [
+          {
+            id: 'inst-1',
+            handler_id: 'mock',
+            type: 'card',
+            selected: true,
+            credential: { type: 'tok_test' },
+          },
+        ],
+      },
+    }),
   });
   const cmplOk = cmpl.statusCode === 200;
   const cmplPlatformErr =
@@ -354,8 +366,8 @@ async function runChecks(): Promise<void> {
   }
 
   check(
-    'SM-10 cancel → cancelled',
-    ['cancelled', 'canceled'].includes(json(canc)['status'] as string),
+    'SM-10 cancel → canceled',
+    ['canceled', 'canceled'].includes(json(canc)['status'] as string),
     `${json(canc)['status']}`,
   );
 
@@ -366,7 +378,7 @@ async function runChecks(): Promise<void> {
     body: JSON.stringify({ id: sidX }),
   });
   check(
-    'SM-11 cancelled session rejects PUT',
+    'SM-11 canceled session rejects PUT',
     putCancelled.statusCode === 409,
     `${putCancelled.statusCode}`,
   );
@@ -380,10 +392,10 @@ async function runChecks(): Promise<void> {
       `${s['continue_url']}`,
     );
   }
-  if (json(canc)['status'] === 'cancelled' || json(canc)['status'] === 'canceled') {
+  if (json(canc)['status'] === 'canceled' || json(canc)['status'] === 'canceled') {
     const cancSession = json(canc);
     check(
-      'CU-02 continue_url absent for terminal (cancelled)',
+      'CU-02 continue_url absent for terminal (canceled)',
       cancSession['continue_url'] === null || cancSession['continue_url'] === undefined,
       '',
     );
@@ -413,7 +425,13 @@ async function runChecks(): Promise<void> {
     method: 'POST',
     url: `/checkout-sessions/${sidX}/complete`,
     headers: JA,
-    body: JSON.stringify({ payment: { token: 'x', provider: 'x' } }),
+    body: JSON.stringify({
+      payment: {
+        instruments: [
+          { id: 'inst-1', handler_id: 'mock', type: 'card', credential: { type: 'x' } },
+        ],
+      },
+    }),
   });
   check('ER-07 409 for invalid state', bad.statusCode === 409, `${bad.statusCode}`);
   check('ER-08 409 body has messages', Array.isArray(json(bad)['messages']), '');

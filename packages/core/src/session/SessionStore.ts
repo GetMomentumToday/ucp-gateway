@@ -13,18 +13,22 @@ import type { EscalationDetails } from '../types/errors.js';
 export type SessionStatus =
   | 'incomplete'
   | 'ready_for_complete'
+  | 'complete_in_progress'
   | 'completed'
-  | 'cancelled'
+  | 'canceled'
   | 'expired'
   | 'requires_escalation';
 
 export interface CheckoutSessionLineItem {
+  readonly id: string;
   readonly item: {
     readonly id: string;
     readonly title?: string | undefined;
     readonly price?: number | undefined;
+    readonly image_url?: string | undefined;
   };
   readonly quantity: number;
+  readonly totals: readonly Total[];
 }
 
 export interface CheckoutSession {
