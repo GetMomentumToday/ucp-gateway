@@ -543,6 +543,14 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
       if (!isSessionOwnedByTenant(session, request.tenant))
         return sendSessionError(reply, 'missing', `Session not found: ${request.params.id}`, 404);
 
+      if (session.status !== 'ready_for_complete' && session.status !== 'complete_in_progress')
+        return sendSessionError(
+          reply,
+          'INVALID_SESSION_STATE',
+          `Session must be in ready_for_complete state, got: ${session.status}`,
+          409,
+        );
+
       // Check fulfillment is selected before allowing completion
       const hasFulfillmentSelected = session.fulfillment?.methods.some(
         (m) => m.selected_destination_id && m.groups.some((g) => g.selected_option_id),
@@ -555,14 +563,6 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
           400,
         );
       }
-
-      if (session.status !== 'ready_for_complete' && session.status !== 'complete_in_progress')
-        return sendSessionError(
-          reply,
-          'INVALID_SESSION_STATE',
-          `Session must be in ready_for_complete state, got: ${session.status}`,
-          409,
-        );
 
       const cartId = session.cart_id ?? '';
 

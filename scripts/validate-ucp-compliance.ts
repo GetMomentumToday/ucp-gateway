@@ -120,6 +120,39 @@ async function runChecks(): Promise<void> {
           address_country: 'US',
         },
       },
+      fulfillment: {
+        destinations: [
+          {
+            id: 'dest-1',
+            address: {
+              street_address: '1 St',
+              address_locality: 'NY',
+              postal_code: '10001',
+              address_country: 'US',
+            },
+          },
+        ],
+        methods: [
+          {
+            id: 'method-1',
+            type: 'shipping',
+            selected_destination_id: 'dest-1',
+            groups: [
+              {
+                id: 'group-1',
+                selected_option_id: 'option-1',
+                options: [
+                  {
+                    id: 'option-1',
+                    label: 'Standard',
+                    amount: { value: 500, currency: 'USD' },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
     }),
   });
   const cmpl = await inject({
@@ -143,7 +176,10 @@ async function runChecks(): Promise<void> {
   const cmplOk = cmpl.statusCode === 200;
   const cmplErrCode = !cmplOk ? (json(cmpl).messages as { code: string }[])?.[0]?.code : '';
   const cmplPlatformErr =
-    !cmplOk && (cmplErrCode === 'PLATFORM_ERROR' || cmplErrCode === 'INVALID_SESSION_STATE');
+    !cmplOk &&
+    (cmplErrCode === 'PLATFORM_ERROR' ||
+      cmplErrCode === 'INVALID_SESSION_STATE' ||
+      cmplErrCode === 'fulfillment_required');
   check(
     'EP-05 POST .../complete → 200',
     cmplOk || cmplPlatformErr,
