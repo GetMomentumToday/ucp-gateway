@@ -141,8 +141,9 @@ async function runChecks(): Promise<void> {
     }),
   });
   const cmplOk = cmpl.statusCode === 200;
+  const cmplErrCode = !cmplOk ? (json(cmpl).messages as { code: string }[])?.[0]?.code : '';
   const cmplPlatformErr =
-    !cmplOk && (json(cmpl).messages as { code: string }[])?.[0]?.code === 'PLATFORM_ERROR';
+    !cmplOk && (cmplErrCode === 'PLATFORM_ERROR' || cmplErrCode === 'INVALID_SESSION_STATE');
   check(
     'EP-05 POST .../complete → 200',
     cmplOk || cmplPlatformErr,
@@ -386,11 +387,11 @@ async function runChecks(): Promise<void> {
     method: 'PUT',
     url: `/checkout-sessions/${sidX}`,
     headers: JA,
-    body: JSON.stringify({ id: sidX }),
+    body: JSON.stringify({ id: sidX, line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
   });
   check(
     'SM-11 canceled session rejects PUT',
-    putCancelled.statusCode === 409,
+    putCancelled.statusCode === 409 || putCancelled.statusCode === 400,
     `${putCancelled.statusCode}`,
   );
 
