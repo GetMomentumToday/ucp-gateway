@@ -668,4 +668,3 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
     }
   });
 }
-
