@@ -122,7 +122,7 @@ export interface PaymentToken {
 
 export interface Order {
   readonly id: string;
-  readonly status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  readonly status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'canceled';
   readonly total_cents: number;
   readonly currency: string;
   readonly created_at_iso: string;

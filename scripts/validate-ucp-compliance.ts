@@ -354,8 +354,8 @@ async function runChecks(): Promise<void> {
   }
 
   check(
-    'SM-10 cancel → cancelled',
-    ['cancelled', 'canceled'].includes(json(canc)['status'] as string),
+    'SM-10 cancel → canceled',
+    ['canceled', 'canceled'].includes(json(canc)['status'] as string),
     `${json(canc)['status']}`,
   );
 
@@ -366,7 +366,7 @@ async function runChecks(): Promise<void> {
     body: JSON.stringify({ id: sidX }),
   });
   check(
-    'SM-11 cancelled session rejects PUT',
+    'SM-11 canceled session rejects PUT',
     putCancelled.statusCode === 409,
     `${putCancelled.statusCode}`,
   );
@@ -380,10 +380,10 @@ async function runChecks(): Promise<void> {
       `${s['continue_url']}`,
     );
   }
-  if (json(canc)['status'] === 'cancelled' || json(canc)['status'] === 'canceled') {
+  if (json(canc)['status'] === 'canceled' || json(canc)['status'] === 'canceled') {
     const cancSession = json(canc);
     check(
-      'CU-02 continue_url absent for terminal (cancelled)',
+      'CU-02 continue_url absent for terminal (canceled)',
       cancSession['continue_url'] === null || cancSession['continue_url'] === undefined,
       '',
     );
