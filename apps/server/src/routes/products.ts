@@ -5,8 +5,16 @@ import { AdapterError } from '@ucp-middleware/core';
 const searchQuerySchema = z.object({
   q: z.string().min(1, 'q is required'),
   category: z.string().optional(),
-  min_price_cents: z.coerce.number().int('min_price_cents must be an integer').nonnegative().optional(),
-  max_price_cents: z.coerce.number().int('max_price_cents must be an integer').nonnegative().optional(),
+  min_price_cents: z.coerce
+    .number()
+    .int('min_price_cents must be an integer')
+    .nonnegative()
+    .optional(),
+  max_price_cents: z.coerce
+    .number()
+    .int('max_price_cents must be an integer')
+    .nonnegative()
+    .optional(),
   in_stock: z
     .enum(['true', 'false'])
     .transform((v) => v === 'true')
@@ -23,12 +31,14 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     const parsed = searchQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send({
-        messages: [{
-          type: 'error',
-          code: 'VALIDATION_ERROR',
-          content: parsed.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; '),
-          severity: 'recoverable',
-        }],
+        messages: [
+          {
+            type: 'error',
+            code: 'VALIDATION_ERROR',
+            content: parsed.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; '),
+            severity: 'recoverable',
+          },
+        ],
       });
     }
 
@@ -51,20 +61,24 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
-  app.get<{ Params: { id: string } }>(
-    '/ucp/products/:id',
-    async (request, reply: FastifyReply) => {
-      try {
-        const product = await request.adapter.getProduct(request.params.id);
-        return product;
-      } catch (err) {
-        if (err instanceof AdapterError && err.code === 'PRODUCT_NOT_FOUND') {
-          return reply.status(404).send({
-            messages: [{ type: 'error', code: 'PRODUCT_NOT_FOUND', content: err.message, severity: 'recoverable' }],
-          });
-        }
-        throw err;
+  app.get<{ Params: { id: string } }>('/ucp/products/:id', async (request, reply: FastifyReply) => {
+    try {
+      const product = await request.adapter.getProduct(request.params.id);
+      return product;
+    } catch (err: unknown) {
+      if (err instanceof AdapterError && err.code === 'PRODUCT_NOT_FOUND') {
+        return reply.status(404).send({
+          messages: [
+            {
+              type: 'error',
+              code: 'PRODUCT_NOT_FOUND',
+              content: err.message,
+              severity: 'recoverable',
+            },
+          ],
+        });
       }
-    },
-  );
+      throw err;
+    }
+  });
 }

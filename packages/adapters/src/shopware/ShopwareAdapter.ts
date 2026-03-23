@@ -32,8 +32,16 @@ export type { ShopwareConfig } from './shopware-types.js';
 
 const DEFAULT_LIMIT = 20;
 const PRODUCT_INCLUDES = [
-  'id', 'name', 'description', 'productNumber', 'price',
-  'calculatedPrice', 'stock', 'available', 'cover', 'translated',
+  'id',
+  'name',
+  'description',
+  'productNumber',
+  'price',
+  'calculatedPrice',
+  'stock',
+  'available',
+  'cover',
+  'translated',
 ] as const;
 
 export class ShopwareAdapter implements PlatformAdapter {
@@ -57,13 +65,15 @@ export class ShopwareAdapter implements PlatformAdapter {
       ucp: {
         version: '2026-01-23',
         services: {
-          'dev.ucp.shopping': [{
-            version: '2026-01-23',
-            spec: 'https://ucp.dev/latest/specification/checkout/',
-            endpoint: '/checkout-sessions',
-            schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
-            transport: 'rest',
-          }],
+          'dev.ucp.shopping': [
+            {
+              version: '2026-01-23',
+              spec: 'https://ucp.dev/latest/specification/checkout/',
+              endpoint: '/checkout-sessions',
+              schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
+              transport: 'rest',
+            },
+          ],
         },
         capabilities: {
           'dev.ucp.shopping.checkout': [{ version: '2026-01-23' }],
@@ -78,16 +88,12 @@ export class ShopwareAdapter implements PlatformAdapter {
     const limit = Math.min(query.limit ?? DEFAULT_LIMIT, 100);
     const page = query.page ?? 1;
 
-    const response = await this.request<ShopwareProductListResponse>(
-      'POST',
-      '/store-api/product',
-      {
-        limit,
-        page,
-        filter: [{ type: 'contains', field: 'name', value: query.q }],
-        includes: { product: [...PRODUCT_INCLUDES] },
-      },
-    );
+    const response = await this.request<ShopwareProductListResponse>('POST', '/store-api/product', {
+      limit,
+      page,
+      filter: [{ type: 'contains', field: 'name', value: query.q }],
+      includes: { product: [...PRODUCT_INCLUDES] },
+    });
 
     const elements = response.elements ?? [];
     return elements.map((raw) => mapShopwareProduct(raw, this.cachedCurrency));
@@ -122,7 +128,10 @@ export class ShopwareAdapter implements PlatformAdapter {
   }
 
   async calculateTotals(cartId: string, ctx: CheckoutContext): Promise<readonly Total[]> {
-    const countryId = await this.resolveCountryId(cartId, ctx.shipping_address.address_country ?? '');
+    const countryId = await this.resolveCountryId(
+      cartId,
+      ctx.shipping_address.address_country ?? '',
+    );
     await this.requestWithToken(cartId, 'PATCH', '/store-api/context', {
       shippingAddress: buildShippingAddressPayload(ctx, countryId),
     });
@@ -154,7 +163,7 @@ export class ShopwareAdapter implements PlatformAdapter {
   private buildHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'sw-access-key': this.accessKey,
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Content-Type': 'application/json',
     };
     if (this.contextToken !== undefined) {

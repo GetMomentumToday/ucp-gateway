@@ -23,9 +23,7 @@ export interface DbConfig {
 export function buildDbConfig(): DbConfig {
   const connectionString = process.env['DATABASE_URL'];
   if (!connectionString) {
-    throw new Error(
-      'DATABASE_URL environment variable is required but not set',
-    );
+    throw new Error('DATABASE_URL environment variable is required but not set');
   }
   return { connectionString };
 }

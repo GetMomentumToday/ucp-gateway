@@ -16,20 +16,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
-import fp from 'fastify-plugin';
-import {
-  createContainer,
-  asValue,
-  asClass,
-  InjectionMode,
-} from 'awilix';
+
+import { createContainer, asValue, asClass, InjectionMode } from 'awilix';
 import Redis from 'ioredis';
-import {
-  createDb,
-  TenantRepository,
-  AdapterRegistry,
-  SessionStore,
-} from '@ucp-middleware/core';
+import { createDb, TenantRepository, AdapterRegistry, SessionStore } from '@ucp-middleware/core';
 import { MockAdapter } from '@ucp-middleware/adapters';
 import type { Cradle } from '../container/index.js';
 import { errorHandlerPlugin } from '../middleware/error-handler.js';
@@ -65,8 +55,11 @@ describeLive('Live: UCP Middleware → Magento', () => {
     const container = createContainer<Cradle>({ injectionMode: InjectionMode.CLASSIC });
     container.register({
       env: asValue({
-        PORT: 0, LOG_LEVEL: 'error', NODE_ENV: 'test',
-        DATABASE_URL: LIVE_DB_URL, REDIS_URL: LIVE_REDIS_URL,
+        PORT: 0,
+        LOG_LEVEL: 'error',
+        NODE_ENV: 'test',
+        DATABASE_URL: LIVE_DB_URL,
+        REDIS_URL: LIVE_REDIS_URL,
         SECRET_KEY: 'test_secret_32_chars_at_least_long',
       }),
       db: asValue(db),
@@ -116,7 +109,9 @@ describeLive('Live: UCP Middleware → Magento', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body) as { products: { id: string; title: string; price_cents: number }[] };
+    const body = JSON.parse(res.body) as {
+      products: { id: string; title: string; price_cents: number }[];
+    };
     expect(body.products.length).toBeGreaterThan(0);
     expect(body.products[0]!.title).toContain('Shoes');
     expect(body.products[0]!.price_cents).toBe(12999);
@@ -165,9 +160,13 @@ describeLive('Live: UCP Middleware → Magento', () => {
         id: session.id,
         buyer: {
           shipping_address: {
-            first_name: 'Test', last_name: 'User',
-            street_address: '456 Oak Ave', address_locality: 'Denver',
-            postal_code: '80202', address_region: 'CO', address_country: 'US',
+            first_name: 'Test',
+            last_name: 'User',
+            street_address: '456 Oak Ave',
+            address_locality: 'Denver',
+            postal_code: '80202',
+            address_region: 'CO',
+            address_country: 'US',
           },
         },
       }),

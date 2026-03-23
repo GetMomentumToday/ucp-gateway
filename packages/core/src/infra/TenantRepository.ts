@@ -9,7 +9,6 @@ import { eq } from 'drizzle-orm';
 import { tenants } from './schema.js';
 import type { Database } from './db.js';
 
-
 /** Immutable tenant record as returned by the repository. */
 export interface Tenant {
   readonly id: string;
@@ -40,7 +39,6 @@ export interface UpdateTenantInput {
   readonly settings?: unknown;
 }
 
-
 export class TenantRepository {
   private readonly db: Database;
 
@@ -50,11 +48,7 @@ export class TenantRepository {
 
   /** Find a tenant by its domain. Returns null when not found. */
   async findByDomain(domain: string): Promise<Tenant | null> {
-    const rows = await this.db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.domain, domain))
-      .limit(1);
+    const rows = await this.db.select().from(tenants).where(eq(tenants.domain, domain)).limit(1);
 
     const row = rows[0];
     return row ? toTenant(row) : null;
@@ -62,11 +56,7 @@ export class TenantRepository {
 
   /** Find a tenant by primary key. Returns null when not found. */
   async findById(id: string): Promise<Tenant | null> {
-    const rows = await this.db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.id, id))
-      .limit(1);
+    const rows = await this.db.select().from(tenants).where(eq(tenants.id, id)).limit(1);
 
     const row = rows[0];
     return row ? toTenant(row) : null;
@@ -107,7 +97,6 @@ export class TenantRepository {
     return row ? toTenant(row) : null;
   }
 }
-
 
 /** Map a raw DB row to an immutable Tenant object. */
 function toTenant(row: typeof tenants.$inferSelect): Tenant {

@@ -19,7 +19,11 @@ export async function httpGet<T>(config: HttpClientConfig, path: string): Promis
   return handleResponse<T>(response);
 }
 
-export async function httpPost<T>(config: HttpClientConfig, path: string, body: unknown): Promise<T> {
+export async function httpPost<T>(
+  config: HttpClientConfig,
+  path: string,
+  body: unknown,
+): Promise<T> {
   const url = `${config.baseUrl}${path}`;
   const response = await fetch(url, {
     method: 'POST',

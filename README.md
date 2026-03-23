@@ -30,13 +30,14 @@
 
 **Why UCP Middleware?**
 
-| Problem | Solution |
-|---|---|
-| Every shop has a different API | One UCP adapter per platform |
-| AI agents need structured, typed data | UCP normalises products, orders, carts |
-| N × M integration hell | N adapters + M agent bridges, not N × M custom connectors |
+| Problem                               | Solution                                                  |
+| ------------------------------------- | --------------------------------------------------------- |
+| Every shop has a different API        | One UCP adapter per platform                              |
+| AI agents need structured, typed data | UCP normalises products, orders, carts                    |
+| N × M integration hell                | N adapters + M agent bridges, not N × M custom connectors |
 
 **Supported platforms out of the box:**
+
 - Magento 2.x
 - Shopware 6.x
 - Shopify (REST + GraphQL Storefront)
@@ -129,14 +130,14 @@ Health check: `GET /health` → `{"status":"ok"}`
 
 Copy `.env.example` to `.env` and fill in the values:
 
-| Variable | Description | Default |
-|---|---|---|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://ucp:ucp@localhost:5432/ucp` |
-| `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
-| `PORT` | HTTP server port | `3000` |
-| `SECRET_KEY` | JWT signing secret (≥ 32 chars) | — |
-| `NODE_ENV` | `development` \| `production` \| `test` | `development` |
-| `LOG_LEVEL` | Pino log level | `info` |
+| Variable       | Description                             | Default                                   |
+| -------------- | --------------------------------------- | ----------------------------------------- |
+| `DATABASE_URL` | PostgreSQL connection string            | `postgresql://ucp:ucp@localhost:5432/ucp` |
+| `REDIS_URL`    | Redis connection string                 | `redis://localhost:6379`                  |
+| `PORT`         | HTTP server port                        | `3000`                                    |
+| `SECRET_KEY`   | JWT signing secret (≥ 32 chars)         | —                                         |
+| `NODE_ENV`     | `development` \| `production` \| `test` | `development`                             |
+| `LOG_LEVEL`    | Pino log level                          | `info`                                    |
 
 ---
 
@@ -148,21 +149,29 @@ Adapters implement the `IShopAdapter` interface from `@ucp-middleware/core`:
 import type { IShopAdapter } from '@ucp-middleware/core';
 
 export class MyShopAdapter implements IShopAdapter {
-  async getProduct(id: string) { /* ... */ }
-  async listProducts(query: ProductQuery) { /* ... */ }
-  async getCart(cartId: string) { /* ... */ }
-  async createOrder(payload: OrderPayload) { /* ... */ }
+  async getProduct(id: string) {
+    /* ... */
+  }
+  async listProducts(query: ProductQuery) {
+    /* ... */
+  }
+  async getCart(cartId: string) {
+    /* ... */
+  }
+  async createOrder(payload: OrderPayload) {
+    /* ... */
+  }
   // ...
 }
 ```
 
 **Built-in adapters** (in `packages/adapters`):
 
-| Adapter | Status | Notes |
-|---|---|---|
-| Magento 2.x | Planned | REST API v1 |
-| Shopware 6.x | Planned | Store API |
-| Shopify | Planned | Storefront GraphQL |
+| Adapter      | Status  | Notes              |
+| ------------ | ------- | ------------------ |
+| Magento 2.x  | Planned | REST API v1        |
+| Shopware 6.x | Planned | Store API          |
+| Shopify      | Planned | Storefront GraphQL |
 
 **Community adapters:** see [CONTRIBUTING.md](CONTRIBUTING.md) for the adapter request process.
 
@@ -172,16 +181,16 @@ export class MyShopAdapter implements IShopAdapter {
 
 All endpoints are prefixed with `/api/v1`.
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/health` | Liveness check |
-| `GET` | `/ready` | Readiness check (DB + Redis) |
-| `GET` | `/api/v1/products` | List products |
-| `GET` | `/api/v1/products/:id` | Get product by ID |
-| `GET` | `/api/v1/cart/:id` | Get cart |
-| `POST` | `/api/v1/cart` | Create/update cart |
-| `POST` | `/api/v1/orders` | Place order |
-| `GET` | `/api/v1/orders/:id` | Get order status |
+| Method | Path                   | Description                  |
+| ------ | ---------------------- | ---------------------------- |
+| `GET`  | `/health`              | Liveness check               |
+| `GET`  | `/ready`               | Readiness check (DB + Redis) |
+| `GET`  | `/api/v1/products`     | List products                |
+| `GET`  | `/api/v1/products/:id` | Get product by ID            |
+| `GET`  | `/api/v1/cart/:id`     | Get cart                     |
+| `POST` | `/api/v1/cart`         | Create/update cart           |
+| `POST` | `/api/v1/orders`       | Place order                  |
+| `GET`  | `/api/v1/orders/:id`   | Get order status             |
 
 Full OpenAPI spec is served at `/docs` when `NODE_ENV=development`.
 

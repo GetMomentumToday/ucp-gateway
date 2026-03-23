@@ -4,13 +4,15 @@ export const MOCK_PROFILE: UCPProfile = {
   ucp: {
     version: '2026-01-23',
     services: {
-      'dev.ucp.shopping': [{
-        version: '2026-01-23',
-        spec: 'https://ucp.dev/latest/specification/checkout/',
-        endpoint: '/checkout-sessions',
-        schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
-        transport: 'rest',
-      }],
+      'dev.ucp.shopping': [
+        {
+          version: '2026-01-23',
+          spec: 'https://ucp.dev/latest/specification/checkout/',
+          endpoint: '/checkout-sessions',
+          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
+          transport: 'rest',
+        },
+      ],
     },
     capabilities: {
       'dev.ucp.shopping.checkout': [{ version: '2026-01-23' }],
@@ -31,8 +33,20 @@ export const MOCK_PRODUCTS: readonly Product[] = [
     stock_quantity: 50,
     images: ['https://mock.store/images/shoes-pro-1.jpg'],
     variants: [
-      { id: 'var-001a', title: 'Size 9', price_cents: 12999, in_stock: true, attributes: { size: '9' } },
-      { id: 'var-001b', title: 'Size 10', price_cents: 12999, in_stock: true, attributes: { size: '10' } },
+      {
+        id: 'var-001a',
+        title: 'Size 9',
+        price_cents: 12999,
+        in_stock: true,
+        attributes: { size: '9' },
+      },
+      {
+        id: 'var-001b',
+        title: 'Size 10',
+        price_cents: 12999,
+        in_stock: true,
+        attributes: { size: '10' },
+      },
     ],
   },
   {
@@ -45,8 +59,20 @@ export const MOCK_PRODUCTS: readonly Product[] = [
     stock_quantity: 120,
     images: ['https://mock.store/images/sneakers-1.jpg'],
     variants: [
-      { id: 'var-002a', title: 'White / Size 9', price_cents: 7999, in_stock: true, attributes: { color: 'white', size: '9' } },
-      { id: 'var-002b', title: 'Black / Size 10', price_cents: 7999, in_stock: true, attributes: { color: 'black', size: '10' } },
+      {
+        id: 'var-002a',
+        title: 'White / Size 9',
+        price_cents: 7999,
+        in_stock: true,
+        attributes: { color: 'white', size: '9' },
+      },
+      {
+        id: 'var-002b',
+        title: 'Black / Size 10',
+        price_cents: 7999,
+        in_stock: true,
+        attributes: { color: 'black', size: '10' },
+      },
     ],
   },
   {
@@ -59,7 +85,13 @@ export const MOCK_PRODUCTS: readonly Product[] = [
     stock_quantity: 30,
     images: ['https://mock.store/images/hiking-boots-1.jpg'],
     variants: [
-      { id: 'var-003a', title: 'Size 10', price_cents: 18999, in_stock: true, attributes: { size: '10' } },
+      {
+        id: 'var-003a',
+        title: 'Size 10',
+        price_cents: 18999,
+        in_stock: true,
+        attributes: { size: '10' },
+      },
     ],
   },
   {
@@ -72,7 +104,13 @@ export const MOCK_PRODUCTS: readonly Product[] = [
     stock_quantity: 15,
     images: ['https://mock.store/images/loafers-1.jpg'],
     variants: [
-      { id: 'var-004a', title: 'Brown / Size 9', price_cents: 24999, in_stock: true, attributes: { color: 'brown', size: '9' } },
+      {
+        id: 'var-004a',
+        title: 'Brown / Size 9',
+        price_cents: 24999,
+        in_stock: true,
+        attributes: { color: 'brown', size: '9' },
+      },
     ],
   },
   {
@@ -85,7 +123,13 @@ export const MOCK_PRODUCTS: readonly Product[] = [
     stock_quantity: 200,
     images: ['https://mock.store/images/sandals-1.jpg'],
     variants: [
-      { id: 'var-005a', title: 'Size 9', price_cents: 4999, in_stock: true, attributes: { size: '9' } },
+      {
+        id: 'var-005a',
+        title: 'Size 9',
+        price_cents: 4999,
+        in_stock: true,
+        attributes: { size: '9' },
+      },
     ],
   },
 ];

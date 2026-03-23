@@ -1,10 +1,4 @@
-import {
-  createContainer,
-  asValue,
-  asClass,
-  InjectionMode,
-  type AwilixContainer,
-} from 'awilix';
+import { createContainer, asValue, asClass, InjectionMode, type AwilixContainer } from 'awilix';
 import Redis, { type Redis as RedisType } from 'ioredis';
 import type { Env } from '../config/env.js';
 import {

@@ -18,7 +18,8 @@ describe('E2E Checkout: MockAdapter full flow', () => {
 
   it('completes a full checkout journey', async () => {
     const profileRes = await app.inject({
-      method: 'GET', url: '/.well-known/ucp',
+      method: 'GET',
+      url: '/.well-known/ucp',
       headers: { host: 'mock-store.localhost' },
     });
     expect(profileRes.statusCode).toBe(200);
@@ -26,37 +27,48 @@ describe('E2E Checkout: MockAdapter full flow', () => {
     expect(profile.ucp.version).toBe('2026-01-23');
 
     const searchRes = await app.inject({
-      method: 'GET', url: '/ucp/products?q=shoes', headers: HEADERS,
+      method: 'GET',
+      url: '/ucp/products?q=shoes',
+      headers: HEADERS,
     });
     expect(searchRes.statusCode).toBe(200);
     const searchBody = JSON.parse(searchRes.body) as { products: { id: string }[] };
     expect(searchBody.products.length).toBeGreaterThan(0);
 
     const createRes = await app.inject({
-      method: 'POST', url: '/checkout-sessions',
+      method: 'POST',
+      url: '/checkout-sessions',
       headers: { ...HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({
         line_items: [{ item: { id: searchBody.products[0]!.id }, quantity: 1 }],
       }),
     });
     expect(createRes.statusCode).toBe(201);
-    const session = JSON.parse(createRes.body) as { id: string; status: string; line_items: unknown[]; ucp: unknown };
+    const session = JSON.parse(createRes.body) as {
+      id: string;
+      status: string;
+      line_items: unknown[];
+      ucp: unknown;
+    };
     expect(session.status).toBe('incomplete');
     expect(session.line_items).toHaveLength(1);
     expect(session.ucp).toBeDefined();
 
     const updateRes = await app.inject({
-      method: 'PUT', url: `/checkout-sessions/${session.id}`,
+      method: 'PUT',
+      url: `/checkout-sessions/${session.id}`,
       headers: { ...HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({
         id: session.id,
         line_items: [{ item: { id: searchBody.products[0]!.id }, quantity: 1 }],
         buyer: {
-          first_name: 'Jane', last_name: 'Doe',
+          first_name: 'Jane',
+          last_name: 'Doe',
           shipping_address: {
             street_address: '123 Main St',
             address_locality: 'Austin',
-            postal_code: '78701', address_country: 'US',
+            postal_code: '78701',
+            address_country: 'US',
           },
         },
       }),
@@ -66,18 +78,24 @@ describe('E2E Checkout: MockAdapter full flow', () => {
     expect(updated.status).toBe('ready_for_complete');
 
     const completeRes = await app.inject({
-      method: 'POST', url: `/checkout-sessions/${session.id}/complete`,
+      method: 'POST',
+      url: `/checkout-sessions/${session.id}/complete`,
       headers: { ...HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({ payment: { token: 'tok_test_123', provider: 'mock' } }),
     });
     expect(completeRes.statusCode).toBe(200);
-    const completed = JSON.parse(completeRes.body) as { status: string; order: { id: string } | null };
+    const completed = JSON.parse(completeRes.body) as {
+      status: string;
+      order: { id: string } | null;
+    };
     expect(completed.status).toBe('completed');
     expect(completed.order).not.toBeNull();
 
     if (completed.order) {
       const orderRes = await app.inject({
-        method: 'GET', url: `/orders/${completed.order.id}`, headers: HEADERS,
+        method: 'GET',
+        url: `/orders/${completed.order.id}`,
+        headers: HEADERS,
       });
       expect(orderRes.statusCode).toBe(200);
     }
@@ -85,35 +103,41 @@ describe('E2E Checkout: MockAdapter full flow', () => {
 
   it('idempotent /complete returns same order', async () => {
     const createRes = await app.inject({
-      method: 'POST', url: '/checkout-sessions',
+      method: 'POST',
+      url: '/checkout-sessions',
       headers: { ...HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
     });
     const session = JSON.parse(createRes.body) as { id: string };
 
     await app.inject({
-      method: 'PUT', url: `/checkout-sessions/${session.id}`,
+      method: 'PUT',
+      url: `/checkout-sessions/${session.id}`,
       headers: { ...HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({
         id: session.id,
         buyer: {
           shipping_address: {
-            street_address: '456 Oak Ave', address_locality: 'Denver',
-            postal_code: '80202', address_country: 'US',
+            street_address: '456 Oak Ave',
+            address_locality: 'Denver',
+            postal_code: '80202',
+            address_country: 'US',
           },
         },
       }),
     });
 
     const c1 = await app.inject({
-      method: 'POST', url: `/checkout-sessions/${session.id}/complete`,
+      method: 'POST',
+      url: `/checkout-sessions/${session.id}/complete`,
       headers: { ...HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({ payment: { token: 'tok_456', provider: 'mock' } }),
     });
     const first = JSON.parse(c1.body) as { order: { id: string } };
 
     const c2 = await app.inject({
-      method: 'POST', url: `/checkout-sessions/${session.id}/complete`,
+      method: 'POST',
+      url: `/checkout-sessions/${session.id}/complete`,
       headers: { ...HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({ payment: { token: 'tok_456', provider: 'mock' } }),
     });
@@ -124,14 +148,17 @@ describe('E2E Checkout: MockAdapter full flow', () => {
 
   it('POST /cancel returns cancelled status', async () => {
     const createRes = await app.inject({
-      method: 'POST', url: '/checkout-sessions',
+      method: 'POST',
+      url: '/checkout-sessions',
       headers: { ...HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({}),
     });
     const session = JSON.parse(createRes.body) as { id: string };
 
     const cancelRes = await app.inject({
-      method: 'POST', url: `/checkout-sessions/${session.id}/cancel`, headers: HEADERS,
+      method: 'POST',
+      url: `/checkout-sessions/${session.id}/cancel`,
+      headers: HEADERS,
     });
     expect(cancelRes.statusCode).toBe(200);
     const cancelled = JSON.parse(cancelRes.body) as { status: string };
@@ -140,24 +167,33 @@ describe('E2E Checkout: MockAdapter full flow', () => {
 
   it('GET /checkout-sessions/:id returns session with ucp envelope', async () => {
     const createRes = await app.inject({
-      method: 'POST', url: '/checkout-sessions',
+      method: 'POST',
+      url: '/checkout-sessions',
       headers: { ...HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({}),
     });
     const session = JSON.parse(createRes.body) as { id: string };
 
     const getRes = await app.inject({
-      method: 'GET', url: `/checkout-sessions/${session.id}`, headers: HEADERS,
+      method: 'GET',
+      url: `/checkout-sessions/${session.id}`,
+      headers: HEADERS,
     });
     expect(getRes.statusCode).toBe(200);
-    const fetched = JSON.parse(getRes.body) as { id: string; status: string; ucp: { version: string } };
+    const fetched = JSON.parse(getRes.body) as {
+      id: string;
+      status: string;
+      ucp: { version: string };
+    };
     expect(fetched.id).toBe(session.id);
     expect(fetched.ucp.version).toBe('2026-01-23');
   });
 
   it('returns 404 for unknown session', async () => {
     const res = await app.inject({
-      method: 'GET', url: '/checkout-sessions/nonexistent-id', headers: HEADERS,
+      method: 'GET',
+      url: '/checkout-sessions/nonexistent-id',
+      headers: HEADERS,
     });
     expect(res.statusCode).toBe(404);
     const body = JSON.parse(res.body) as { messages: { code: string }[] };
@@ -166,14 +202,16 @@ describe('E2E Checkout: MockAdapter full flow', () => {
 
   it('returns 409 when completing incomplete session', async () => {
     const createRes = await app.inject({
-      method: 'POST', url: '/checkout-sessions',
+      method: 'POST',
+      url: '/checkout-sessions',
       headers: { ...HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({}),
     });
     const session = JSON.parse(createRes.body) as { id: string };
 
     const res = await app.inject({
-      method: 'POST', url: `/checkout-sessions/${session.id}/complete`,
+      method: 'POST',
+      url: `/checkout-sessions/${session.id}/complete`,
       headers: { ...HEADERS, 'content-type': 'application/json' },
       body: JSON.stringify({ payment: { token: 'tok_test', provider: 'mock' } }),
     });

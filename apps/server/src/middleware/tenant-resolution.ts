@@ -27,7 +27,9 @@ function buildTenantCacheKey(host: string): string {
   return `${CACHE_PREFIX}${host}`;
 }
 
-export const tenantResolutionPlugin = fp(async function tenantResolution(app: FastifyInstance): Promise<void> {
+export const tenantResolutionPlugin = fp(async function tenantResolution(
+  app: FastifyInstance,
+): Promise<void> {
   app.decorateRequest('tenant', null);
   app.decorateRequest('adapter', null);
 
@@ -41,7 +43,14 @@ export const tenantResolutionPlugin = fp(async function tenantResolution(app: Fa
     const host = request.hostname;
     if (!host) {
       return reply.status(404).send({
-        messages: [{ type: 'error', code: 'UNKNOWN_STORE', content: 'Missing Host header', severity: 'recoverable' }],
+        messages: [
+          {
+            type: 'error',
+            code: 'UNKNOWN_STORE',
+            content: 'Missing Host header',
+            severity: 'recoverable',
+          },
+        ],
       });
     }
 
@@ -49,7 +58,14 @@ export const tenantResolutionPlugin = fp(async function tenantResolution(app: Fa
 
     if (!tenant) {
       return reply.status(404).send({
-        messages: [{ type: 'error', code: 'UNKNOWN_STORE', content: `No store configured for domain: ${host}`, severity: 'recoverable' }],
+        messages: [
+          {
+            type: 'error',
+            code: 'UNKNOWN_STORE',
+            content: `No store configured for domain: ${host}`,
+            severity: 'recoverable',
+          },
+        ],
       });
     }
 
@@ -59,7 +75,10 @@ export const tenantResolutionPlugin = fp(async function tenantResolution(app: Fa
 });
 
 async function resolveTenantByHost(
-  redis: { get(key: string): Promise<string | null>; setex(key: string, ttl: number, value: string): Promise<unknown> },
+  redis: {
+    get(key: string): Promise<string | null>;
+    setex(key: string, ttl: number, value: string): Promise<unknown>;
+  },
   tenantRepository: { findByDomain(domain: string): Promise<Tenant | null> },
   host: string,
 ): Promise<Tenant | null> {

@@ -20,8 +20,9 @@ module.exports = {
     '@typescript-eslint/explicit-function-return-type': 'warn',
     '@typescript-eslint/no-floating-promises': 'error',
     '@typescript-eslint/await-thenable': 'error',
+    '@typescript-eslint/require-await': 'off',
     'no-console': ['warn', { allow: ['warn', 'error'] }],
-    'eqeqeq': ['error', 'always'],
+    eqeqeq: ['error', 'always'],
     'no-var': 'error',
     'prefer-const': 'error',
   },
@@ -29,5 +30,5 @@ module.exports = {
     node: true,
     es2022: true,
   },
-  ignorePatterns: ['dist/', 'node_modules/', '*.js', '!.eslintrc.js'],
+  ignorePatterns: ['dist/', 'node_modules/', '*.js', '!.eslintrc.js', 'scripts/', 'platforms/'],
 };

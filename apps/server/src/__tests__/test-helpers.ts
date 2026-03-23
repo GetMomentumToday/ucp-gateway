@@ -6,21 +6,9 @@
 
 import Fastify, { type FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
-import {
-  createContainer,
-  asValue,
-  asClass,
-  InjectionMode,
-  type AwilixContainer,
-} from 'awilix';
+import { createContainer, asValue, asClass, InjectionMode, type AwilixContainer } from 'awilix';
 import type { Redis as RedisType } from 'ioredis';
-import {
-  AdapterRegistry,
-  SessionStore,
-  TenantRepository,
-  createDb,
-  type Database,
-} from '@ucp-middleware/core';
+import { AdapterRegistry, SessionStore, TenantRepository, createDb } from '@ucp-middleware/core';
 import { MockAdapter } from '@ucp-middleware/adapters';
 import type { Cradle } from '../container/index.js';
 import type { Env } from '../config/env.js';
@@ -59,9 +47,19 @@ export async function buildTestApp(): Promise<{
   const mockRedisStore = new Map<string, string>();
   const mockRedis = {
     get: async (key: string) => mockRedisStore.get(key) ?? null,
-    set: async (key: string, value: string) => { mockRedisStore.set(key, value); return 'OK'; },
-    setex: async (key: string, _ttl: number, value: string) => { mockRedisStore.set(key, value); return 'OK'; },
-    del: async (key: string) => { const had = mockRedisStore.has(key); mockRedisStore.delete(key); return had ? 1 : 0; },
+    set: async (key: string, value: string) => {
+      mockRedisStore.set(key, value);
+      return 'OK';
+    },
+    setex: async (key: string, _ttl: number, value: string) => {
+      mockRedisStore.set(key, value);
+      return 'OK';
+    },
+    del: async (key: string) => {
+      const had = mockRedisStore.has(key);
+      mockRedisStore.delete(key);
+      return had ? 1 : 0;
+    },
     ttl: async () => 1800,
     quit: async () => 'OK',
   };
@@ -94,7 +92,14 @@ export async function buildTestApp(): Promise<{
     const host = request.hostname;
     if (!host || host !== TEST_DOMAIN) {
       void reply.status(404).send({
-        messages: [{ type: 'error', code: 'UNKNOWN_STORE', content: `No store configured for domain: ${host}`, severity: 'recoverable' }],
+        messages: [
+          {
+            type: 'error',
+            code: 'UNKNOWN_STORE',
+            content: `No store configured for domain: ${host}`,
+            severity: 'recoverable',
+          },
+        ],
       });
       return;
     }
@@ -119,7 +124,14 @@ export async function buildTestApp(): Promise<{
     const agentHeader = request.headers['ucp-agent'];
     if (!agentHeader || typeof agentHeader !== 'string' || agentHeader.trim().length === 0) {
       void reply.status(401).send({
-        messages: [{ type: 'error', code: 'INVALID_AGENT', content: 'Missing or invalid UCP-Agent header', severity: 'recoverable' }],
+        messages: [
+          {
+            type: 'error',
+            code: 'INVALID_AGENT',
+            content: 'Missing or invalid UCP-Agent header',
+            severity: 'recoverable',
+          },
+        ],
       });
       return;
     }

@@ -3,8 +3,8 @@ import type { MagentoProduct, MagentoCartItem, MagentoTotals } from './magento-t
 import { dollarsToCents } from '../shared/price.js';
 
 export function mapMagentoProduct(item: MagentoProduct, storeUrl: string): Product {
-  const description = getCustomAttribute(item, 'description')
-    ?? getCustomAttribute(item, 'short_description');
+  const description =
+    getCustomAttribute(item, 'description') ?? getCustomAttribute(item, 'short_description');
   const stockItem = item.extension_attributes?.stock_item;
   const images = extractProductImages(item, storeUrl);
 
@@ -49,7 +49,11 @@ export function mapMagentoCartItems(cartId: string, items: readonly MagentoCartI
 export function mapMagentoTotals(totals: MagentoTotals): readonly Total[] {
   return [
     { type: 'subtotal', amount: dollarsToCents(totals.subtotal) },
-    { type: 'fulfillment', amount: dollarsToCents(totals.shipping_amount), display_text: 'Shipping' },
+    {
+      type: 'fulfillment',
+      amount: dollarsToCents(totals.shipping_amount),
+      display_text: 'Shipping',
+    },
     { type: 'tax', amount: dollarsToCents(totals.tax_amount) },
     { type: 'total', amount: dollarsToCents(totals.grand_total) },
   ];

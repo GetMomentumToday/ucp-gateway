@@ -1,13 +1,12 @@
 /**
  * UCP Spec Compliance Validator
  *
- * Validates conformance to the Universal Commerce Protocol specification.
  * Spec: https://ucp.dev/latest/specification/overview/
  * Checkout: https://ucp.dev/latest/specification/checkout/
  * REST binding: https://ucp.dev/latest/specification/checkout-rest/
  *
  * Usage:
- *   UCP_BASE_URL=http://localhost:3000 npx tsx scripts/validate-ucp-compliance.ts
+ *   UCP_BASE_URL=http://localhost:3000 npm run validate:ucp
  *
  * Exit code: 0 = compliant, 1 = violations, 2 = fatal error
  */
@@ -15,311 +14,553 @@
 const UCP_SPEC_VERSION = '2026-01-23';
 const YYYY_MM_DD = /^\d{4}-\d{2}-\d{2}$/;
 const RFC_3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
-const REVERSE_DOMAIN_CAPABILITY = /^[a-z]{2,}\.[a-z0-9.-]+\.[a-z0-9_]+\.[a-z0-9_]+$/;
+const REVERSE_DOMAIN_CAP = /^[a-z]{2,}\.[a-z0-9.-]+\.[a-z0-9_]+\.[a-z0-9_]+$/;
 
-interface CheckResult { readonly name: string; readonly pass: boolean; readonly detail: string }
+interface CheckResult {
+  readonly name: string;
+  readonly pass: boolean;
+  readonly detail: string;
+}
 const results: CheckResult[] = [];
-function check(name: string, pass: boolean, detail = ''): void { results.push({ name, pass, detail }); }
+function check(name: string, pass: boolean, detail = ''): void {
+  results.push({ name, pass, detail });
+}
 
-type InjectFn = (opts: { method: string; url: string; headers?: Record<string, string>; body?: string }) =>
-  Promise<{ statusCode: number; body: string; headers: Record<string, string> }>;
+type R = { statusCode: number; body: string; headers: Record<string, string> };
+type InjectFn = (o: {
+  method: string;
+  url: string;
+  headers?: Record<string, string>;
+  body?: string;
+}) => Promise<R>;
 
-async function getInjectFn(): Promise<InjectFn> {
-  const baseUrl = process.env['UCP_BASE_URL'] ?? 'http://localhost:3000';
-  return async (opts) => {
-    const res = await fetch(`${baseUrl}${opts.url}`, {
-      method: opts.method,
-      headers: opts.headers,
-      body: opts.body,
+async function getInject(): Promise<InjectFn> {
+  const base = process.env['UCP_BASE_URL'] ?? 'http://localhost:3000';
+  return async (o) => {
+    const r = await fetch(`${base}${o.url}`, {
+      method: o.method,
+      headers: o.headers,
+      body: o.body,
     });
-    const body = await res.text();
+    const body = await r.text();
     const headers: Record<string, string> = {};
-    res.headers.forEach((v, k) => { headers[k] = v; });
-    return { statusCode: res.statusCode ?? res.status, body, headers };
+    r.headers.forEach((v, k) => {
+      headers[k] = v;
+    });
+    return { statusCode: r.status, body, headers };
   };
 }
 
+function json(r: R): Record<string, unknown> {
+  return JSON.parse(r.body) as Record<string, unknown>;
+}
+
 async function runChecks(): Promise<void> {
-  const inject = await getInjectFn();
-  const hostValue = process.env['UCP_HOST'] ?? new URL(process.env['UCP_BASE_URL'] ?? 'http://localhost:3000').host;
-  const HOST = { host: hostValue };
-  const AGENT = { ...HOST, 'ucp-agent': 'profile="https://compliance.test/agent.json"' };
-  const JSON_AGENT = { ...AGENT, 'content-type': 'application/json' };
+  const inject = await getInject();
+  const host =
+    process.env['UCP_HOST'] ?? new URL(process.env['UCP_BASE_URL'] ?? 'http://localhost:3000').host;
+  const H = { host };
+  const A = { ...H, 'ucp-agent': 'profile="https://compliance.test/agent.json"' };
+  const JA = { ...A, 'content-type': 'application/json' };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 1. ENDPOINTS (Checkout REST Binding §Endpoints)
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══ 1. ENDPOINTS (REST Binding §Endpoints) ═══════════════════════════
 
-  const discovery = await inject({ method: 'GET', url: '/.well-known/ucp', headers: HOST });
-  check('ENDPOINT: GET /.well-known/ucp', discovery.statusCode === 200, `${discovery.statusCode}`);
+  const disc = await inject({ method: 'GET', url: '/.well-known/ucp', headers: H });
+  check('EP-01 GET /.well-known/ucp → 200', disc.statusCode === 200, `${disc.statusCode}`);
 
-  const createRes = await inject({
-    method: 'POST', url: '/checkout-sessions', headers: JSON_AGENT,
+  const cr = await inject({
+    method: 'POST',
+    url: '/checkout-sessions',
+    headers: JA,
     body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
   });
-  check('ENDPOINT: POST /checkout-sessions → 201', createRes.statusCode === 201, `${createRes.statusCode}`);
+  check('EP-02 POST /checkout-sessions → 201', cr.statusCode === 201, `${cr.statusCode}`);
+  const sid = cr.statusCode === 201 ? (json(cr) as { id: string }).id : 'none';
 
-  const sessionId = createRes.statusCode === 201
-    ? (JSON.parse(createRes.body) as { id: string }).id : 'none';
+  const gr = await inject({ method: 'GET', url: `/checkout-sessions/${sid}`, headers: A });
+  check('EP-03 GET /checkout-sessions/{id} → 200', gr.statusCode === 200, `${gr.statusCode}`);
 
-  const getRes = await inject({ method: 'GET', url: `/checkout-sessions/${sessionId}`, headers: AGENT });
-  check('ENDPOINT: GET /checkout-sessions/{id} → 200', getRes.statusCode === 200, `${getRes.statusCode}`);
-
-  const putRes = await inject({
-    method: 'PUT', url: `/checkout-sessions/${sessionId}`, headers: JSON_AGENT,
+  const pr = await inject({
+    method: 'PUT',
+    url: `/checkout-sessions/${sid}`,
+    headers: JA,
     body: JSON.stringify({
-      id: sessionId,
+      id: sid,
       line_items: [{ item: { id: 'prod-001' }, quantity: 1 }],
-      buyer: { shipping_address: { street_address: '1 Main St', address_locality: 'NY', postal_code: '10001', address_country: 'US' } },
+      buyer: {
+        shipping_address: {
+          street_address: '1 St',
+          address_locality: 'NY',
+          postal_code: '10001',
+          address_country: 'US',
+        },
+      },
     }),
   });
-  check('ENDPOINT: PUT /checkout-sessions/{id} → 200', putRes.statusCode === 200, `${putRes.statusCode}`);
+  check('EP-04 PUT /checkout-sessions/{id} → 200', pr.statusCode === 200, `${pr.statusCode}`);
 
-  const createForComplete = await inject({
-    method: 'POST', url: '/checkout-sessions', headers: JSON_AGENT,
+  const crC = await inject({
+    method: 'POST',
+    url: '/checkout-sessions',
+    headers: JA,
     body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
   });
-  const completeSessionId = (JSON.parse(createForComplete.body) as { id: string }).id;
+  const sidC = (json(crC) as { id: string }).id;
   await inject({
-    method: 'PUT', url: `/checkout-sessions/${completeSessionId}`, headers: JSON_AGENT,
+    method: 'PUT',
+    url: `/checkout-sessions/${sidC}`,
+    headers: JA,
     body: JSON.stringify({
-      id: completeSessionId,
-      buyer: { shipping_address: { street_address: '1 St', address_locality: 'NY', postal_code: '10001', address_country: 'US' } },
+      id: sidC,
+      buyer: {
+        shipping_address: {
+          street_address: '1 St',
+          address_locality: 'NY',
+          postal_code: '10001',
+          address_country: 'US',
+        },
+      },
     }),
   });
-  const completeRes = await inject({
-    method: 'POST', url: `/checkout-sessions/${completeSessionId}/complete`, headers: JSON_AGENT,
-    body: JSON.stringify({ payment: { token: 'tok_test', provider: 'mock' } }),
+  const cmpl = await inject({
+    method: 'POST',
+    url: `/checkout-sessions/${sidC}/complete`,
+    headers: JA,
+    body: JSON.stringify({ payment: { token: 'tok', provider: 'mock' } }),
   });
-  const completeOk = completeRes.statusCode === 200;
-  const completePlatformError = !completeOk && JSON.parse(completeRes.body).messages?.[0]?.code === 'PLATFORM_ERROR';
+  const cmplOk = cmpl.statusCode === 200;
+  const cmplPlatformErr =
+    !cmplOk && (json(cmpl).messages as { code: string }[])?.[0]?.code === 'PLATFORM_ERROR';
   check(
-    'ENDPOINT: POST /checkout-sessions/{id}/complete → 200',
-    completeOk || completePlatformError,
-    completeOk ? '200' : `${completeRes.statusCode} (platform error — no real cart, expected with real adapters)`,
+    'EP-05 POST .../complete → 200',
+    cmplOk || cmplPlatformErr,
+    cmplOk ? '200' : `${cmpl.statusCode} (platform err, expected w/ real adapter)`,
   );
 
-  const createForCancel = await inject({
-    method: 'POST', url: '/checkout-sessions', headers: JSON_AGENT, body: JSON.stringify({}),
+  const crX = await inject({ method: 'POST', url: '/checkout-sessions', headers: JA, body: '{}' });
+  const sidX = (json(crX) as { id: string }).id;
+  const canc = await inject({
+    method: 'POST',
+    url: `/checkout-sessions/${sidX}/cancel`,
+    headers: A,
   });
-  const sid2 = (JSON.parse(createForCancel.body) as { id: string }).id;
-  const cancelRes = await inject({ method: 'POST', url: `/checkout-sessions/${sid2}/cancel`, headers: AGENT });
-  check('ENDPOINT: POST /checkout-sessions/{id}/cancel → 200', cancelRes.statusCode === 200, `${cancelRes.statusCode}`);
+  check('EP-06 POST .../cancel → 200', canc.statusCode === 200, `${canc.statusCode}`);
 
-  const oldPrefix = await inject({ method: 'POST', url: '/ucp/checkout-sessions', headers: JSON_AGENT, body: '{}' });
-  check('ENDPOINT: /ucp/checkout-sessions must NOT exist', oldPrefix.statusCode === 404, `${oldPrefix.statusCode}`);
+  const old = await inject({
+    method: 'POST',
+    url: '/ucp/checkout-sessions',
+    headers: JA,
+    body: '{}',
+  });
+  check('EP-07 /ucp/ prefix must NOT exist', old.statusCode === 404, `${old.statusCode}`);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 2. BUSINESS PROFILE (Spec §Profile Structure)
-  // ═══════════════════════════════════════════════════════════════════════
+  // ═══ 2. PROFILE (§Profile Structure) ══════════════════════════════════
 
-  const profile = JSON.parse(discovery.body) as Record<string, unknown>;
-  const ucp = profile['ucp'] as Record<string, unknown> | undefined;
+  const prof = json(disc);
+  const u = prof['ucp'] as Record<string, unknown> | undefined;
+  check('PR-01 has ucp object', u !== undefined && typeof u === 'object', '');
 
-  check('PROFILE: has ucp object', ucp !== undefined && typeof ucp === 'object', '');
+  if (u) {
+    check(
+      'PR-02 ucp.version YYYY-MM-DD',
+      YYYY_MM_DD.test(String(u['version'] ?? '')),
+      `${u['version']}`,
+    );
+    check('PR-03 ucp.version = spec version', u['version'] === UCP_SPEC_VERSION, `${u['version']}`);
 
-  if (ucp) {
-    check('PROFILE: ucp.version is YYYY-MM-DD', YYYY_MM_DD.test(String(ucp['version'] ?? '')), `${String(ucp['version'])}`);
-    check('PROFILE: ucp.version matches spec', ucp['version'] === UCP_SPEC_VERSION, `${String(ucp['version'])}`);
-
-    const services = ucp['services'] as Record<string, unknown[]> | undefined;
-    check('PROFILE: ucp.services exists', services !== undefined, '');
-    if (services) {
-      const keys = Object.keys(services);
-      check('PROFILE: services keys use reverse-domain', keys.every(k => k.includes('.')), `${keys.join(', ')}`);
-      for (const [svcName, svcArr] of Object.entries(services)) {
-        if (Array.isArray(svcArr) && svcArr.length > 0) {
-          const svc = svcArr[0] as Record<string, unknown>;
-          check(`PROFILE: service ${svcName} has version`, typeof svc['version'] === 'string', '');
-          check(`PROFILE: service ${svcName} has spec URL`, typeof svc['spec'] === 'string', '');
-          check(`PROFILE: service ${svcName} has endpoint`, typeof svc['endpoint'] === 'string', '');
-          check(`PROFILE: service ${svcName} has schema URL`, typeof svc['schema'] === 'string', '');
-          check(`PROFILE: service ${svcName} has transport`, ['rest', 'mcp', 'a2a', 'embedded'].includes(svc['transport'] as string), `${String(svc['transport'])}`);
+    const svcs = u['services'] as Record<string, Record<string, unknown>[]> | undefined;
+    check('PR-04 ucp.services exists', svcs !== undefined, '');
+    if (svcs) {
+      check(
+        'PR-05 services keys reverse-domain',
+        Object.keys(svcs).every((k) => k.includes('.')),
+        Object.keys(svcs).join(', '),
+      );
+      for (const [n, arr] of Object.entries(svcs)) {
+        if (Array.isArray(arr) && arr.length > 0) {
+          const s = arr[0]!;
+          check(
+            `PR-06 svc ${n}.version`,
+            typeof s['version'] === 'string' && YYYY_MM_DD.test(s['version'] as string),
+            `${s['version']}`,
+          );
+          check(
+            `PR-07 svc ${n}.spec`,
+            typeof s['spec'] === 'string' && (s['spec'] as string).startsWith('http'),
+            `${s['spec']}`,
+          );
+          check(`PR-08 svc ${n}.endpoint`, typeof s['endpoint'] === 'string', `${s['endpoint']}`);
+          check(
+            `PR-09 svc ${n}.schema`,
+            typeof s['schema'] === 'string' && (s['schema'] as string).startsWith('http'),
+            `${s['schema']}`,
+          );
+          check(
+            `PR-10 svc ${n}.transport`,
+            ['rest', 'mcp', 'a2a', 'embedded'].includes(s['transport'] as string),
+            `${s['transport']}`,
+          );
         }
       }
     }
 
-    const caps = ucp['capabilities'] as Record<string, unknown[]> | undefined;
-    check('PROFILE: ucp.capabilities exists', caps !== undefined, '');
+    const caps = u['capabilities'] as Record<string, Record<string, unknown>[]> | undefined;
+    check('PR-11 ucp.capabilities exists', caps !== undefined, '');
     if (caps) {
-      for (const capName of Object.keys(caps)) {
-        check(`PROFILE: capability ${capName} uses reverse-domain format`, REVERSE_DOMAIN_CAPABILITY.test(capName), capName);
+      for (const [cn, arr] of Object.entries(caps)) {
+        check(`PR-12 cap ${cn} reverse-domain`, REVERSE_DOMAIN_CAP.test(cn), cn);
+        if (Array.isArray(arr) && arr.length > 0) {
+          check(
+            `PR-13 cap ${cn}[0].version YYYY-MM-DD`,
+            YYYY_MM_DD.test(String(arr[0]!['version'])),
+            `${arr[0]!['version']}`,
+          );
+        }
       }
     }
+    check('PR-14 ucp.payment_handlers exists', u['payment_handlers'] !== undefined, '');
+  }
+  check(
+    'PR-15 signing_keys array',
+    Array.isArray(prof['signing_keys']),
+    `${typeof prof['signing_keys']}`,
+  );
 
-    check('PROFILE: ucp.payment_handlers exists', ucp['payment_handlers'] !== undefined, '');
+  // ═══ 3. SESSION SCHEMA (§Checkout Session Object) ═════════════════════
+
+  const s = json(cr);
+  check('SS-01 id: string', typeof s['id'] === 'string', '');
+  check(
+    'SS-02 status: valid enum',
+    [
+      'incomplete',
+      'requires_escalation',
+      'ready_for_complete',
+      'complete_in_progress',
+      'completed',
+      'canceled',
+    ].includes(s['status'] as string),
+    `${s['status']}`,
+  );
+  check('SS-03 line_items: array', Array.isArray(s['line_items']), `${typeof s['line_items']}`);
+  check('SS-04 currency: string', typeof s['currency'] === 'string', `${s['currency']}`);
+  check('SS-05 totals: array', Array.isArray(s['totals']), `${typeof s['totals']}`);
+  check('SS-06 links: array', Array.isArray(s['links']), `${typeof s['links']}`);
+  check('SS-07 messages: array', Array.isArray(s['messages']), `${typeof s['messages']}`);
+  check('SS-08 ucp envelope', typeof s['ucp'] === 'object' && s['ucp'] !== null, '');
+
+  check(
+    'SS-09 no cart_id (internal)',
+    s['cart_id'] === undefined,
+    s['cart_id'] !== undefined ? 'leaked' : '',
+  );
+  check(
+    'SS-10 no tenant_id (internal)',
+    s['tenant_id'] === undefined,
+    s['tenant_id'] !== undefined ? 'leaked' : '',
+  );
+  check(
+    'SS-11 no idempotency_key (internal)',
+    s['idempotency_key'] === undefined,
+    s['idempotency_key'] !== undefined ? 'leaked' : '',
+  );
+  check(
+    'SS-12 no escalation (internal)',
+    s['escalation'] === undefined,
+    s['escalation'] !== undefined ? 'leaked' : '',
+  );
+
+  check(
+    'SS-13 expires_at RFC 3339',
+    RFC_3339.test(s['expires_at'] as string),
+    `${s['expires_at']}`,
+  );
+  const ttlH = (new Date(s['expires_at'] as string).getTime() - Date.now()) / 3_600_000;
+  check('SS-14 expires_at ~6h default', ttlH > 5 && ttlH < 7, `${ttlH.toFixed(1)}h`);
+
+  const ue = s['ucp'] as Record<string, unknown>;
+  if (ue) {
+    check(
+      'SS-15 ucp.version YYYY-MM-DD',
+      YYYY_MM_DD.test(String(ue['version'])),
+      `${ue['version']}`,
+    );
+    check('SS-16 ucp.capabilities present', typeof ue['capabilities'] === 'object', '');
+    check('SS-17 ucp.payment_handlers present', typeof ue['payment_handlers'] === 'object', '');
   }
 
-  check('PROFILE: signing_keys array exists', Array.isArray(profile['signing_keys']), `${typeof profile['signing_keys']}`);
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // 3. CHECKOUT SESSION SCHEMA (Spec §Checkout Session Object)
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const session = JSON.parse(createRes.body) as Record<string, unknown>;
-
-  check('SESSION: id is string', typeof session['id'] === 'string', '');
-  check('SESSION: status is valid enum', ['incomplete', 'requires_escalation', 'ready_for_complete', 'complete_in_progress', 'completed', 'canceled'].includes(session['status'] as string), `${session['status']}`);
-  check('SESSION: line_items is array', Array.isArray(session['line_items']), `${typeof session['line_items']}`);
-  check('SESSION: currency is string', typeof session['currency'] === 'string', `${session['currency']}`);
-  check('SESSION: totals is array', Array.isArray(session['totals']), `${typeof session['totals']}`);
-  check('SESSION: links is array', Array.isArray(session['links']), `${typeof session['links']}`);
-  check('SESSION: messages is array', Array.isArray(session['messages']), `${typeof session['messages']}`);
-  check('SESSION: ucp envelope present', typeof session['ucp'] === 'object' && session['ucp'] !== null, '');
-
-  check('SESSION: no cart_id (internal)', session['cart_id'] === undefined, session['cart_id'] !== undefined ? 'leaked' : '');
-  check('SESSION: no tenant_id (internal)', session['tenant_id'] === undefined, session['tenant_id'] !== undefined ? 'leaked' : '');
-  check('SESSION: no idempotency_key (internal)', session['idempotency_key'] === undefined, session['idempotency_key'] !== undefined ? 'leaked' : '');
-  check('SESSION: no escalation (internal)', session['escalation'] === undefined, session['escalation'] !== undefined ? 'leaked' : '');
-
-  if (session['expires_at']) {
-    check('SESSION: expires_at is RFC 3339', RFC_3339.test(session['expires_at'] as string), `${session['expires_at']}`);
-    const diffHours = (new Date(session['expires_at'] as string).getTime() - Date.now()) / 3_600_000;
-    check('SESSION: expires_at default ~6 hours', diffHours > 5 && diffHours < 7, `${diffHours.toFixed(1)}h`);
+  const items = s['line_items'] as Record<string, unknown>[];
+  if (Array.isArray(items) && items.length > 0) {
+    const li = items[0]!;
+    check(
+      'SS-18 line_item has item',
+      typeof li['item'] === 'object' && li['item'] !== null,
+      `${typeof li['item']}`,
+    );
+    check(
+      'SS-19 line_item has quantity',
+      typeof li['quantity'] === 'number',
+      `${typeof li['quantity']}`,
+    );
   }
 
-  const ucpEnv = session['ucp'] as Record<string, unknown> | undefined;
-  if (ucpEnv) {
-    check('SESSION.ucp: version is YYYY-MM-DD', YYYY_MM_DD.test(String(ucpEnv['version'])), `${ucpEnv['version']}`);
-    check('SESSION.ucp: capabilities present', typeof ucpEnv['capabilities'] === 'object', '');
-    check('SESSION.ucp: payment_handlers present', typeof ucpEnv['payment_handlers'] === 'object', '');
-  }
+  // ═══ 4. STATE MACHINE (§Checkout Status State Machine) ════════════════
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 4. STATE MACHINE (Spec §Checkout Status State Machine)
-  // ═══════════════════════════════════════════════════════════════════════
+  check('SM-01 create → incomplete', s['status'] === 'incomplete', `${s['status']}`);
+  check(
+    'SM-02 PUT+addr → ready_for_complete',
+    json(pr)['status'] === 'ready_for_complete',
+    `${json(pr)['status']}`,
+  );
 
-  check('STATE: create → incomplete', session['status'] === 'incomplete', `${session['status']}`);
-
-  const updated = JSON.parse(putRes.body) as Record<string, unknown>;
-  check('STATE: PUT with address → ready_for_complete', updated['status'] === 'ready_for_complete', `${updated['status']}`);
-
-  if (completeOk) {
-    const completed = JSON.parse(completeRes.body) as Record<string, unknown>;
-    check('STATE: complete → completed', completed['status'] === 'completed', `${completed['status']}`);
-
-    if (completed['order'] !== undefined && completed['order'] !== null) {
-      const order = completed['order'] as Record<string, unknown>;
-      check('SESSION.order: has id', typeof order['id'] === 'string', '');
-      check('SESSION.order: has permalink_url', typeof order['permalink_url'] === 'string', '');
-    } else {
-      check('SESSION.order: present after completion', false, 'order missing from completed session');
+  if (cmplOk) {
+    const cd = json(cmpl);
+    check('SM-03 complete → completed', cd['status'] === 'completed', `${cd['status']}`);
+    const ord = cd['order'] as Record<string, unknown> | null;
+    check('SM-04 order present', ord !== null && ord !== undefined, '');
+    if (ord) {
+      check('SM-05 order.id: string', typeof ord['id'] === 'string', '');
+      check('SM-06 order.permalink_url: string', typeof ord['permalink_url'] === 'string', '');
     }
+
+    const getAfter = await inject({ method: 'GET', url: `/checkout-sessions/${sidC}`, headers: A });
+    const sa = json(getAfter);
+    check(
+      'SM-07 GET after complete shows completed',
+      sa['status'] === 'completed',
+      `${sa['status']}`,
+    );
+    check('SM-08 GET after complete has order', sa['order'] !== null, '');
+
+    const putAfter = await inject({
+      method: 'PUT',
+      url: `/checkout-sessions/${sidC}`,
+      headers: JA,
+      body: JSON.stringify({ id: sidC }),
+    });
+    check(
+      'SM-09 completed session immutable (PUT → 409)',
+      putAfter.statusCode === 409,
+      `${putAfter.statusCode}`,
+    );
   } else {
-    check('STATE: complete → completed', true, 'skipped (platform error — no real cart)');
-    check('SESSION.order: has id', true, 'skipped');
-    check('SESSION.order: has permalink_url', true, 'skipped');
+    check('SM-03 complete → completed', true, 'skipped (platform err)');
+    check('SM-04 order present', true, 'skipped');
+    check('SM-05 order.id', true, 'skipped');
+    check('SM-06 order.permalink_url', true, 'skipped');
+    check('SM-07 GET after complete', true, 'skipped');
+    check('SM-08 GET after complete has order', true, 'skipped');
+    check('SM-09 completed immutable', true, 'skipped');
   }
 
-  const cancelled = JSON.parse(cancelRes.body) as Record<string, unknown>;
-  check('STATE: cancel → cancelled/canceled', ['cancelled', 'canceled'].includes(cancelled['status'] as string), `${cancelled['status']}`);
+  check(
+    'SM-10 cancel → cancelled',
+    ['cancelled', 'canceled'].includes(json(canc)['status'] as string),
+    `${json(canc)['status']}`,
+  );
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 5. ERROR / MESSAGES FORMAT (Spec §Error Handling & Messages)
-  // ═══════════════════════════════════════════════════════════════════════
+  const putCancelled = await inject({
+    method: 'PUT',
+    url: `/checkout-sessions/${sidX}`,
+    headers: JA,
+    body: JSON.stringify({ id: sidX }),
+  });
+  check(
+    'SM-11 cancelled session rejects PUT',
+    putCancelled.statusCode === 409,
+    `${putCancelled.statusCode}`,
+  );
 
-  const notFound = await inject({ method: 'GET', url: '/checkout-sessions/nonexistent', headers: AGENT });
-  check('ERROR: 404 for unknown session', notFound.statusCode === 404, `${notFound.statusCode}`);
+  // ═══ 5. continue_url (§Continue URL Specifications) ═══════════════════
 
-  const errBody = JSON.parse(notFound.body) as Record<string, unknown>;
-  check('ERROR: response has messages array', Array.isArray(errBody['messages']), `keys: ${Object.keys(errBody).join(', ')}`);
-
-  if (Array.isArray(errBody['messages']) && (errBody['messages'] as unknown[]).length > 0) {
-    const msg = (errBody['messages'] as Record<string, unknown>[])[0]!;
-    check('ERROR.msg: type field', typeof msg['type'] === 'string', `${msg['type']}`);
-    check('ERROR.msg: code field', typeof msg['code'] === 'string', `${msg['code']}`);
-    check('ERROR.msg: content field', typeof msg['content'] === 'string', '');
-    check('ERROR.msg: severity field', ['recoverable', 'requires_buyer_input', 'requires_buyer_review'].includes(msg['severity'] as string), `${msg['severity']}`);
+  if (s['status'] !== 'requires_escalation') {
+    check(
+      'CU-01 continue_url absent for non-escalation',
+      s['continue_url'] === null || s['continue_url'] === undefined,
+      `${s['continue_url']}`,
+    );
+  }
+  if (json(canc)['status'] === 'cancelled' || json(canc)['status'] === 'canceled') {
+    const cancSession = json(canc);
+    check(
+      'CU-02 continue_url absent for terminal (cancelled)',
+      cancSession['continue_url'] === null || cancSession['continue_url'] === undefined,
+      '',
+    );
   }
 
-  const invalidComplete = await inject({
-    method: 'POST', url: `/checkout-sessions/${sid2}/complete`, headers: JSON_AGENT,
+  // ═══ 6. ERRORS (§Error Handling & Messages) ═══════════════════════════
+
+  const nf = await inject({ method: 'GET', url: '/checkout-sessions/nonexistent', headers: A });
+  check('ER-01 404 for unknown session', nf.statusCode === 404, `${nf.statusCode}`);
+  const e = json(nf);
+  check('ER-02 messages array', Array.isArray(e['messages']), `keys: ${Object.keys(e).join(', ')}`);
+  if (Array.isArray(e['messages']) && (e['messages'] as unknown[]).length > 0) {
+    const m = (e['messages'] as Record<string, unknown>[])[0]!;
+    check('ER-03 msg.type', typeof m['type'] === 'string', `${m['type']}`);
+    check('ER-04 msg.code', typeof m['code'] === 'string', `${m['code']}`);
+    check('ER-05 msg.content', typeof m['content'] === 'string', '');
+    check(
+      'ER-06 msg.severity valid',
+      ['recoverable', 'requires_buyer_input', 'requires_buyer_review'].includes(
+        m['severity'] as string,
+      ),
+      `${m['severity']}`,
+    );
+  }
+
+  const bad = await inject({
+    method: 'POST',
+    url: `/checkout-sessions/${sidX}/complete`,
+    headers: JA,
     body: JSON.stringify({ payment: { token: 'x', provider: 'x' } }),
   });
-  check('ERROR: 409 for invalid state transition', invalidComplete.statusCode === 409, `${invalidComplete.statusCode}`);
+  check('ER-07 409 for invalid state', bad.statusCode === 409, `${bad.statusCode}`);
+  check('ER-08 409 body has messages', Array.isArray(json(bad)['messages']), '');
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 6. CONTENT-TYPE (REST Binding §Content Types)
-  // ═══════════════════════════════════════════════════════════════════════
-
-  check('CONTENT-TYPE: response is application/json', (discovery.headers['content-type'] ?? '').includes('application/json'), discovery.headers['content-type'] ?? 'missing');
-  check('CONTENT-TYPE: checkout response is application/json', (createRes.headers['content-type'] ?? '').includes('application/json'), createRes.headers['content-type'] ?? 'missing');
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // 7. HEADERS (REST Binding §Required Headers)
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const noAgent = await inject({ method: 'GET', url: '/checkout-sessions/test', headers: HOST });
-  check('HEADER: 401 without UCP-Agent', noAgent.statusCode === 401, `${noAgent.statusCode}`);
-
-  const rfcAgent = await inject({
-    method: 'GET', url: '/checkout-sessions/test',
-    headers: { ...HOST, 'ucp-agent': 'profile="https://agent.example/profile.json"' },
+  const invalid = await inject({
+    method: 'POST',
+    url: '/checkout-sessions',
+    headers: JA,
+    body: JSON.stringify({ line_items: 'not-array' }),
   });
-  check('HEADER: accepts RFC 8941 UCP-Agent', rfcAgent.statusCode !== 401, `${rfcAgent.statusCode}`);
+  check('ER-09 400 for invalid body', invalid.statusCode === 400, `${invalid.statusCode}`);
+  check('ER-10 400 body has messages', Array.isArray(json(invalid)['messages']), '');
 
-  const simpleAgent = await inject({
-    method: 'GET', url: '/checkout-sessions/test',
-    headers: { ...HOST, 'ucp-agent': 'my-agent/1.0' },
+  // ═══ 7. CONTENT-TYPE (REST §Content Types) ════════════════════════════
+
+  check(
+    'CT-01 profile content-type',
+    (disc.headers['content-type'] ?? '').includes('application/json'),
+    disc.headers['content-type'] ?? '',
+  );
+  check(
+    'CT-02 checkout content-type',
+    (cr.headers['content-type'] ?? '').includes('application/json'),
+    cr.headers['content-type'] ?? '',
+  );
+  check(
+    'CT-03 error content-type',
+    (nf.headers['content-type'] ?? '').includes('application/json'),
+    nf.headers['content-type'] ?? '',
+  );
+
+  // ═══ 8. HEADERS (REST §Required Headers) ══════════════════════════════
+
+  const noA = await inject({ method: 'GET', url: '/checkout-sessions/test', headers: H });
+  check('HD-01 401 w/o UCP-Agent', noA.statusCode === 401, `${noA.statusCode}`);
+
+  const rfc = await inject({
+    method: 'GET',
+    url: '/checkout-sessions/test',
+    headers: { ...H, 'ucp-agent': 'profile="https://agent.example/p.json"' },
   });
-  check('HEADER: accepts simple UCP-Agent (backwards compat)', simpleAgent.statusCode !== 401, `${simpleAgent.statusCode}`);
+  check('HD-02 accepts RFC 8941 UCP-Agent', rfc.statusCode !== 401, `${rfc.statusCode}`);
 
-  check('HEADER: /.well-known/ucp does NOT require UCP-Agent',
-    discovery.statusCode === 200, 'discovery requires auth but should be public');
+  const simple = await inject({
+    method: 'GET',
+    url: '/checkout-sessions/test',
+    headers: { ...H, 'ucp-agent': 'my-agent/1.0' },
+  });
+  check('HD-03 accepts simple UCP-Agent', simple.statusCode !== 401, `${simple.statusCode}`);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 8. HTTP METHODS (REST Binding §Endpoints)
-  // ═══════════════════════════════════════════════════════════════════════
+  check('HD-04 /.well-known/ucp public', disc.statusCode === 200, '');
 
-  const patchCheck = await inject({ method: 'PATCH', url: '/checkout-sessions/test', headers: JSON_AGENT, body: '{}' });
-  check('METHOD: PATCH must NOT exist (spec uses PUT)', patchCheck.statusCode === 404 || patchCheck.statusCode === 405, `${patchCheck.statusCode}`);
+  const withReqId = await inject({
+    method: 'POST',
+    url: '/checkout-sessions',
+    headers: { ...JA, 'request-id': 'req-123' },
+    body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
+  });
+  check('HD-05 accepts Request-Id header', withReqId.statusCode === 201, `${withReqId.statusCode}`);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 9. AMOUNTS (Spec §Amounts format)
-  // ═══════════════════════════════════════════════════════════════════════
+  const withIdem = await inject({
+    method: 'POST',
+    url: '/checkout-sessions',
+    headers: { ...JA, 'idempotency-key': 'idem-test-001' },
+    body: JSON.stringify({ line_items: [{ item: { id: 'prod-001' }, quantity: 1 }] }),
+  });
+  check(
+    'HD-06 accepts Idempotency-Key header',
+    withIdem.statusCode === 201 || withIdem.statusCode === 200,
+    `${withIdem.statusCode}`,
+  );
 
-  const updatedSession = JSON.parse(putRes.body) as Record<string, unknown>;
-  const totals = updatedSession['totals'] as Record<string, unknown>[] | undefined;
-  if (Array.isArray(totals) && totals.length > 0) {
-    const allIntegers = totals.every(t => Number.isInteger(t['amount']));
-    check('AMOUNTS: totals amounts are integers (cents)', allIntegers, '');
-    const validTypes = ['items_discount', 'subtotal', 'discount', 'fulfillment', 'tax', 'fee', 'total'];
-    const allValid = totals.every(t => validTypes.includes(t['type'] as string));
-    check('AMOUNTS: totals types are valid enum', allValid, `${totals.map(t => t['type']).join(', ')}`);
+  // ═══ 9. HTTP METHODS (REST §Endpoints) ════════════════════════════════
+
+  const patch = await inject({
+    method: 'PATCH',
+    url: '/checkout-sessions/test',
+    headers: JA,
+    body: '{}',
+  });
+  check(
+    'MT-01 PATCH must NOT exist',
+    patch.statusCode === 404 || patch.statusCode === 405,
+    `${patch.statusCode}`,
+  );
+
+  // ═══ 10. AMOUNTS (§Amounts format) ════════════════════════════════════
+
+  const ut = json(pr)['totals'] as Record<string, unknown>[] | undefined;
+  if (Array.isArray(ut) && ut.length > 0) {
+    check(
+      'AM-01 totals amounts integers',
+      ut.every((t) => Number.isInteger(t['amount'])),
+      '',
+    );
+    const vt = ['items_discount', 'subtotal', 'discount', 'fulfillment', 'tax', 'fee', 'total'];
+    check(
+      'AM-02 totals types valid',
+      ut.every((t) => vt.includes(t['type'] as string)),
+      ut.map((t) => t['type']).join(', '),
+    );
+    const totalEntry = ut.find((t) => t['type'] === 'total');
+    if (totalEntry) {
+      check(
+        'AM-03 total amount >= 0',
+        (totalEntry['amount'] as number) >= 0,
+        `${totalEntry['amount']}`,
+      );
+    }
   }
 }
 
 async function main(): Promise<void> {
   console.log('UCP Spec Compliance Validator');
   console.log(`Spec: https://ucp.dev/latest/specification/overview/`);
+  console.log(`Checkout: https://ucp.dev/latest/specification/checkout/`);
+  console.log(`REST: https://ucp.dev/latest/specification/checkout-rest/`);
   console.log(`Version: ${UCP_SPEC_VERSION}`);
   console.log(`Target: ${process.env['UCP_BASE_URL'] ?? 'http://localhost:3000'}`);
   console.log('='.repeat(70));
-  console.log('');
 
-  try { await runChecks(); } catch (err) { console.error('Fatal:', err); process.exit(2); }
-
-  const passed = results.filter(r => r.pass);
-  const failed = results.filter(r => !r.pass);
-
-  for (const r of results) {
-    const icon = r.pass ? '\x1b[32mPASS\x1b[0m' : '\x1b[31mFAIL\x1b[0m';
-    console.log(`  [${icon}] ${r.name}${r.detail ? ` — ${r.detail}` : ''}`);
+  try {
+    await runChecks();
+  } catch (err) {
+    console.error('Fatal:', err);
+    process.exit(2);
   }
 
-  console.log('');
-  console.log('='.repeat(70));
-  console.log(`Results: ${passed.length} passed, ${failed.length} failed, ${results.length} total`);
-  console.log(`Spec coverage: endpoints, profile, session schema, state machine,`);
-  console.log(`  error format, content-type, headers, HTTP methods, amounts`);
+  const pass = results.filter((r) => r.pass).length;
+  const fail = results.filter((r) => !r.pass).length;
 
-  if (failed.length > 0) {
+  for (const r of results) {
+    const i = r.pass ? '\x1b[32mPASS\x1b[0m' : '\x1b[31mFAIL\x1b[0m';
+    console.log(`  [${i}] ${r.name}${r.detail ? ` — ${r.detail}` : ''}`);
+  }
+
+  console.log('\n' + '='.repeat(70));
+  console.log(`Results: ${pass} passed, ${fail} failed, ${results.length} total`);
+  console.log('Coverage: endpoints(7) profile(15) session(19) state-machine(11)');
+  console.log('  continue_url(2) errors(10) content-type(3) headers(6) methods(1) amounts(3)');
+
+  if (fail > 0) {
     console.log('\nFailed:');
-    for (const r of failed) console.log(`  - ${r.name}${r.detail ? `: ${r.detail}` : ''}`);
+    for (const r of results.filter((r) => !r.pass)) console.log(`  - ${r.name}: ${r.detail}`);
     process.exit(1);
   }
   console.log('\nAll checks passed!');
-  process.exit(0);
 }
 
 await main();

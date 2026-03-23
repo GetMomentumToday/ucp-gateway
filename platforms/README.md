@@ -21,29 +21,29 @@ bash platforms/shopware/setup-products.sh
 
 ## Endpoints
 
-| Platform | Store | Admin | API |
-|---|---|---|---|
-| **Magento 2** | http://localhost:8080 | http://localhost:8080/admin | http://localhost:8080/rest/V1/ |
-| **Shopware 6** | http://localhost:8888 | http://localhost:8888/admin | http://localhost:8888/api/ |
+| Platform       | Store                 | Admin                       | API                            |
+| -------------- | --------------------- | --------------------------- | ------------------------------ |
+| **Magento 2**  | http://localhost:8080 | http://localhost:8080/admin | http://localhost:8080/rest/V1/ |
+| **Shopware 6** | http://localhost:8888 | http://localhost:8888/admin | http://localhost:8888/api/     |
 
 ## Credentials
 
-| Platform | Username | Password |
-|---|---|---|
-| Magento 2 Admin | `admin` | `magentorocks1` |
-| Shopware 6 Admin | `admin` | `shopware` |
+| Platform         | Username | Password        |
+| ---------------- | -------- | --------------- |
+| Magento 2 Admin  | `admin`  | `magentorocks1` |
+| Shopware 6 Admin | `admin`  | `shopware`      |
 
 ## Sample Products
 
 Both platforms are seeded with the same 5 products (matching `MockAdapter`):
 
-| SKU | Name | Price |
-|---|---|---|
-| UCP-SHOES-001 | Running Shoes Pro | $129.99 |
-| UCP-SNEAKERS-002 | Casual Sneakers | $79.99 |
-| UCP-BOOTS-003 | Hiking Boots | $189.99 |
-| UCP-LOAFERS-004 | Leather Loafers | $249.99 |
-| UCP-SANDALS-005 | Sport Sandals | $49.99 |
+| SKU              | Name              | Price   |
+| ---------------- | ----------------- | ------- |
+| UCP-SHOES-001    | Running Shoes Pro | $129.99 |
+| UCP-SNEAKERS-002 | Casual Sneakers   | $79.99  |
+| UCP-BOOTS-003    | Hiking Boots      | $189.99 |
+| UCP-LOAFERS-004  | Leather Loafers   | $249.99 |
+| UCP-SANDALS-005  | Sport Sandals     | $49.99  |
 
 ## API Authentication
 
@@ -87,10 +87,10 @@ docker compose -f platforms/docker-compose.platforms.yml down -v
 
 ## Resource Usage
 
-| Service | RAM | Disk |
-|---|---|---|
-| Magento 2 | ~1.5 GB | ~2 GB |
-| MariaDB | ~256 MB | ~500 MB |
-| Elasticsearch | ~512 MB | ~200 MB |
-| Shopware 6 | ~512 MB | ~1 GB |
-| **Total** | **~2.8 GB** | **~3.7 GB** |
+| Service       | RAM         | Disk        |
+| ------------- | ----------- | ----------- |
+| Magento 2     | ~1.5 GB     | ~2 GB       |
+| MariaDB       | ~256 MB     | ~500 MB     |
+| Elasticsearch | ~512 MB     | ~200 MB     |
+| Shopware 6    | ~512 MB     | ~1 GB       |
+| **Total**     | **~2.8 GB** | **~3.7 GB** |
