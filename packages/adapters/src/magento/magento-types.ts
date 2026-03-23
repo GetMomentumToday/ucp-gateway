@@ -50,3 +50,35 @@ export interface MagentoAdapterConfig {
   readonly storeUrl: string;
   readonly apiKey: string;
 }
+
+export interface MagentoCartItem {
+  readonly item_id: number;
+  readonly sku: string;
+  readonly qty: number;
+  readonly name: string;
+  readonly price: number;
+  readonly product_type: string;
+  readonly quote_id: string;
+}
+
+export interface MagentoTotals {
+  readonly subtotal: number;
+  readonly grand_total: number;
+  readonly shipping_amount: number;
+  readonly tax_amount: number;
+  readonly base_currency_code: string;
+}
+
+export interface MagentoShippingInfoResponse {
+  readonly totals: MagentoTotals;
+  readonly payment_methods: readonly { readonly code: string; readonly title: string }[];
+}
+
+export interface MagentoOrderResponse {
+  readonly entity_id: number;
+  readonly increment_id: string;
+  readonly status: string;
+  readonly grand_total: number;
+  readonly base_currency_code: string;
+  readonly created_at: string;
+}

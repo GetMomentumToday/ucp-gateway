@@ -12,12 +12,21 @@ import type {
 } from '@ucp-middleware/core';
 import { AdapterError, notFound } from '@ucp-middleware/core';
 import type {
+  ShopwareCartResponse,
   ShopwareConfig,
   ShopwareContextResponse,
+  ShopwareCountryListResponse,
+  ShopwareOrderResponse,
   ShopwareProduct,
   ShopwareProductListResponse,
 } from './shopware-types.js';
-import { mapShopwareProduct, unwrapShopwareProduct } from './shopware-mappers.js';
+import {
+  mapShopwareCart,
+  mapShopwareCartToTotals,
+  mapShopwareOrder,
+  mapShopwareProduct,
+  unwrapShopwareProduct,
+} from './shopware-mappers.js';
 
 export type { ShopwareConfig } from './shopware-types.js';
 
@@ -26,10 +35,6 @@ const PRODUCT_INCLUDES = [
   'id', 'name', 'description', 'productNumber', 'price',
   'calculatedPrice', 'stock', 'available', 'cover', 'translated',
 ] as const;
-
-function notImplemented(): never {
-  throw new AdapterError('PLATFORM_ERROR', 'Not implemented', 501);
-}
 
 export class ShopwareAdapter implements PlatformAdapter {
   readonly name = 'shopware';
@@ -95,11 +100,50 @@ export class ShopwareAdapter implements PlatformAdapter {
     }
   }
 
-  async createCart(): Promise<Cart> { return notImplemented(); }
-  async addToCart(_cartId: string, _items: readonly LineItem[]): Promise<Cart> { return notImplemented(); }
-  async calculateTotals(_cartId: string, _ctx: CheckoutContext): Promise<Totals> { return notImplemented(); }
-  async placeOrder(_cartId: string, _payment: PaymentToken): Promise<Order> { return notImplemented(); }
-  async getOrder(_id: string): Promise<Order> { return notImplemented(); }
+  async createCart(): Promise<Cart> {
+    const response = await this.request<ShopwareCartResponse>('GET', '/store-api/checkout/cart');
+    return mapShopwareCart(response, this.cachedCurrency);
+  }
+
+  async addToCart(cartId: string, items: readonly LineItem[]): Promise<Cart> {
+    const response = await this.requestWithToken<ShopwareCartResponse>(
+      cartId,
+      'POST',
+      '/store-api/checkout/cart/line-item',
+      { items: items.map(buildAddToCartPayload) },
+    );
+    return mapShopwareCart(response, this.cachedCurrency);
+  }
+
+  async calculateTotals(cartId: string, ctx: CheckoutContext): Promise<Totals> {
+    const countryId = await this.resolveCountryId(cartId, ctx.shipping_address.country_iso2);
+    await this.requestWithToken(cartId, 'PATCH', '/store-api/context', {
+      shippingAddress: buildShippingAddressPayload(ctx, countryId),
+    });
+    const cart = await this.requestWithToken<ShopwareCartResponse>(
+      cartId,
+      'GET',
+      '/store-api/checkout/cart',
+    );
+    return mapShopwareCartToTotals(cart, this.cachedCurrency);
+  }
+
+  async placeOrder(cartId: string, _payment: PaymentToken): Promise<Order> {
+    const response = await this.requestWithToken<ShopwareOrderResponse>(
+      cartId,
+      'POST',
+      '/store-api/checkout/order',
+    );
+    return mapShopwareOrder(response, this.cachedCurrency);
+  }
+
+  async getOrder(_id: string): Promise<Order> {
+    throw new AdapterError(
+      'PLATFORM_ERROR',
+      'Shopware Store API does not support retrieving orders by ID',
+      501,
+    );
+  }
 
   private buildHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
@@ -117,6 +161,42 @@ export class ShopwareAdapter implements PlatformAdapter {
     const token = response.headers.get('sw-context-token');
     if (token) {
       this.contextToken = token;
+    }
+  }
+
+  private async resolveCountryId(contextToken: string, countryIso2: string): Promise<string> {
+    const response = await this.requestWithToken<ShopwareCountryListResponse>(
+      contextToken,
+      'POST',
+      '/store-api/country',
+      {
+        filter: [{ type: 'equals', field: 'iso', value: countryIso2 }],
+        limit: 1,
+      },
+    );
+    const country = response.elements[0];
+    if (country === undefined) {
+      throw new AdapterError(
+        'PLATFORM_ERROR',
+        `Country not found for ISO code: ${countryIso2}`,
+        400,
+      );
+    }
+    return country.id;
+  }
+
+  private async requestWithToken<T>(
+    contextToken: string,
+    method: string,
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
+    const savedToken = this.contextToken;
+    this.contextToken = contextToken;
+    try {
+      return await this.request<T>(method, path, body);
+    } finally {
+      this.contextToken = savedToken;
     }
   }
 
@@ -147,4 +227,37 @@ export class ShopwareAdapter implements PlatformAdapter {
 
     return (await response.json()) as T;
   }
+}
+
+function buildAddToCartPayload(item: LineItem): {
+  readonly type: string;
+  readonly referencedId: string;
+  readonly quantity: number;
+} {
+  return {
+    type: 'product',
+    referencedId: item.product_id,
+    quantity: item.quantity,
+  };
+}
+
+function buildShippingAddressPayload(
+  ctx: CheckoutContext,
+  countryId: string,
+): {
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly street: string;
+  readonly city: string;
+  readonly zipcode: string;
+  readonly countryId: string;
+} {
+  return {
+    firstName: ctx.shipping_address.first_name,
+    lastName: ctx.shipping_address.last_name,
+    street: ctx.shipping_address.line1,
+    city: ctx.shipping_address.city,
+    zipcode: ctx.shipping_address.postal_code,
+    countryId,
+  };
 }

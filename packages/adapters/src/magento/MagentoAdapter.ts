@@ -11,13 +11,21 @@ import type {
   Order,
 } from '@ucp-middleware/core';
 import { AdapterError, notFound } from '@ucp-middleware/core';
-import { httpGet } from '../shared/http-client.js';
-import { mapMagentoProduct } from './magento-mappers.js';
+import { httpGet, httpPost } from '../shared/http-client.js';
+import {
+  mapMagentoProduct,
+  mapMagentoCartItems,
+  mapMagentoTotals,
+  mapMagentoOrder,
+  buildMagentoShippingAddress,
+} from './magento-mappers.js';
 import type {
   MagentoAdapterConfig,
   MagentoStoreConfig,
   MagentoSearchResult,
   MagentoProduct,
+  MagentoCartItem,
+  MagentoShippingInfoResponse,
 } from './magento-types.js';
 
 export type { MagentoAdapterConfig } from './magento-types.js';
@@ -41,6 +49,8 @@ export class MagentoAdapter implements PlatformAdapter {
       capabilities: [
         { name: 'catalog.search', version: '1.0' },
         { name: 'catalog.product', version: '1.0' },
+        { name: 'cart.manage', version: '1.0' },
+        { name: 'checkout.complete', version: '1.0' },
       ],
       links: [
         { rel: 'catalog', href: '/ucp/products' },
@@ -73,36 +83,137 @@ export class MagentoAdapter implements PlatformAdapter {
   }
 
   async createCart(): Promise<Cart> {
-    throw new AdapterError('PLATFORM_ERROR', 'Not implemented: createCart', 501);
+    const cartId = await this.post<string>('/rest/V1/guest-carts', {});
+    return { id: cartId, items: [], currency: 'USD' };
   }
 
-  async addToCart(_cartId: string, _items: readonly LineItem[]): Promise<Cart> {
-    throw new AdapterError('PLATFORM_ERROR', 'Not implemented: addToCart', 501);
+  async addToCart(cartId: string, items: readonly LineItem[]): Promise<Cart> {
+    const addedItems: MagentoCartItem[] = [];
+
+    for (const item of items) {
+      const result = await this.post<MagentoCartItem>(
+        `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/items`,
+        {
+          cartItem: {
+            sku: item.product_id,
+            qty: item.quantity,
+            quote_id: cartId,
+          },
+        },
+      );
+      addedItems.push(result);
+    }
+
+    const allItems = await this.get<MagentoCartItem[]>(
+      `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/items`,
+    );
+
+    return mapMagentoCartItems(cartId, allItems);
   }
 
-  async calculateTotals(_cartId: string, _ctx: CheckoutContext): Promise<Totals> {
-    throw new AdapterError('PLATFORM_ERROR', 'Not implemented: calculateTotals', 501);
+  async calculateTotals(cartId: string, ctx: CheckoutContext): Promise<Totals> {
+    const shippingAddress = buildMagentoShippingAddress(ctx.shipping_address);
+    const billingAddress = ctx.billing_address
+      ? buildMagentoShippingAddress(ctx.billing_address)
+      : shippingAddress;
+
+    const response = await this.post<MagentoShippingInfoResponse>(
+      `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/shipping-information`,
+      {
+        addressInformation: {
+          shipping_address: shippingAddress,
+          billing_address: billingAddress,
+          shipping_carrier_code: 'flatrate',
+          shipping_method_code: 'flatrate',
+        },
+      },
+    );
+
+    await this.setBillingAddressWithEmail(cartId, billingAddress);
+
+    return mapMagentoTotals(response.totals);
   }
 
-  async placeOrder(_cartId: string, _payment: PaymentToken): Promise<Order> {
-    throw new AdapterError('PLATFORM_ERROR', 'Not implemented: placeOrder', 501);
+  private async setBillingAddressWithEmail(
+    cartId: string,
+    address: Record<string, unknown>,
+  ): Promise<void> {
+    await this.post<number>(
+      `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/billing-address`,
+      {
+        address: { ...address, email: 'guest@ucp-middleware.local' },
+      },
+    );
   }
 
-  async getOrder(_id: string): Promise<Order> {
-    throw new AdapterError('PLATFORM_ERROR', 'Not implemented: getOrder', 501);
+  async placeOrder(cartId: string, _payment: PaymentToken): Promise<Order> {
+    const orderId = await this.put<number>(
+      `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/order`,
+      {
+        paymentMethod: { method: 'checkmo' },
+      },
+    );
+
+    return mapMagentoOrder(String(orderId), 0, 'USD');
+  }
+
+  async getOrder(id: string): Promise<Order> {
+    try {
+      const order = await this.get<{ entity_id: number; status: string; grand_total: number; base_currency_code: string; created_at: string }>(
+        `/rest/V1/orders/${encodeURIComponent(id)}`,
+      );
+      return {
+        id: String(order.entity_id),
+        status: mapMagentoOrderStatus(order.status),
+        total_cents: Math.round(order.grand_total * 100),
+        currency: order.base_currency_code,
+        created_at_iso: order.created_at,
+      };
+    } catch (err) {
+      if (err instanceof AdapterError && err.statusCode === 404) {
+        throw notFound('ORDER_NOT_FOUND', id);
+      }
+      throw err;
+    }
   }
 
   private async get<T>(path: string): Promise<T> {
-    return httpGet<T>(
-      {
-        baseUrl: this.config.storeUrl,
-        headers: {
-          'Authorization': `Bearer ${this.config.apiKey}`,
-          'Accept': 'application/json',
-        },
+    return httpGet<T>(this.httpConfig(), path);
+  }
+
+  private async post<T>(path: string, body: unknown): Promise<T> {
+    return httpPost<T>(this.httpConfig(), path, body);
+  }
+
+  private async put<T>(path: string, body: unknown): Promise<T> {
+    const url = `${this.config.storeUrl}${path}`;
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${this.config.apiKey}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
-      path,
-    );
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new AdapterError('PLATFORM_ERROR', `Magento API error ${response.status}: ${text}`, response.status);
+    }
+
+    return (await response.json()) as T;
+  }
+
+  private httpConfig() {
+    return {
+      baseUrl: this.config.storeUrl,
+      headers: {
+        'Authorization': `Bearer ${this.config.apiKey}`,
+        'Accept': 'application/json',
+      },
+    };
   }
 }
 
@@ -114,4 +225,16 @@ function buildSearchCriteriaParams(query: string, limit: number, page: number): 
   params.set('searchCriteria[pageSize]', String(limit));
   params.set('searchCriteria[currentPage]', String(page));
   return params;
+}
+
+function mapMagentoOrderStatus(magentoStatus: string): Order['status'] {
+  const statusMap: Record<string, Order['status']> = {
+    pending: 'pending',
+    processing: 'processing',
+    complete: 'delivered',
+    closed: 'cancelled',
+    canceled: 'cancelled',
+    holded: 'pending',
+  };
+  return statusMap[magentoStatus] ?? 'processing';
 }

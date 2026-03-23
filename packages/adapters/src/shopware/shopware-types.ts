@@ -57,3 +57,54 @@ export interface ShopwareSalesChannel {
 export interface ShopwareCurrency {
   readonly isoCode?: string | undefined;
 }
+
+export interface ShopwareCartPrice {
+  readonly totalPrice: number;
+  readonly netPrice: number;
+  readonly positionPrice: number;
+  readonly taxStatus: string;
+  readonly calculatedTaxes: readonly ShopwareCalculatedTax[];
+}
+
+export interface ShopwareCalculatedTax {
+  readonly tax: number;
+  readonly taxRate: number;
+  readonly price: number;
+}
+
+export interface ShopwareCartLineItem {
+  readonly id: string;
+  readonly referencedId: string;
+  readonly label: string;
+  readonly quantity: number;
+  readonly type: string;
+  readonly price: ShopwareCalculatedPrice | null;
+}
+
+export interface ShopwareCartResponse {
+  readonly token: string;
+  readonly lineItems: readonly ShopwareCartLineItem[];
+  readonly price: ShopwareCartPrice;
+}
+
+export interface ShopwareOrderResponse {
+  readonly id: string;
+  readonly orderNumber: string;
+  readonly stateMachineState?: ShopwareStateMachineState | undefined;
+  readonly amountTotal: number;
+  readonly currency?: ShopwareCurrency | undefined;
+  readonly createdAt: string;
+}
+
+export interface ShopwareStateMachineState {
+  readonly technicalName: string;
+}
+
+export interface ShopwareCountry {
+  readonly id: string;
+  readonly iso: string;
+}
+
+export interface ShopwareCountryListResponse {
+  readonly elements: readonly ShopwareCountry[];
+}
