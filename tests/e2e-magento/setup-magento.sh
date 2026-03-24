@@ -86,18 +86,24 @@ while [ "$api_wait" -lt 120 ]; do
 done
 
 # ── 3. Set developer mode (skip DI compile) ────────────────────────────────
-echo "3. Fixing permissions and setting developer mode..."
+echo "3. Fixing permissions..."
 docker exec "$MAGENTO_CONTAINER" bash -c "
-  mkdir -p /var/www/html/var/log /var/www/html/var/cache /var/www/html/var/page_cache /var/www/html/var/session /var/www/html/generated /var/www/html/pub/static
-  find /var/www/html/var -type d -exec chmod 777 {} \; 2>/dev/null
-  find /var/www/html/var -type f -exec chmod 666 {} \; 2>/dev/null
-  find /var/www/html/generated -type d -exec chmod 777 {} \; 2>/dev/null
-  find /var/www/html/pub/static -type d -exec chmod 777 {} \; 2>/dev/null
-  touch /var/www/html/var/log/debug.log /var/www/html/var/log/system.log /var/www/html/var/log/exception.log
-  chmod 666 /var/www/html/var/log/*.log 2>/dev/null
+  chmod -R 777 /var/www/html/var 2>/dev/null
+  chmod -R 777 /var/www/html/generated 2>/dev/null
+  chmod -R 777 /var/www/html/pub/static 2>/dev/null
 " || true
-docker exec "$MAGENTO_CONTAINER" php /var/www/html/bin/magento deploy:mode:set developer --skip-compilation 2>/dev/null || true
-docker exec "$MAGENTO_CONTAINER" php /var/www/html/bin/magento cache:clean 2>/dev/null || true
+
+echo "   Verifying API responds with clean JSON..."
+for verify_attempt in 1 2 3 4 5; do
+  VERIFY=$(curl -s "${MAGENTO_URL}/rest/V1/store/storeConfigs" -H 'Accept: application/json' || true)
+  if echo "$VERIFY" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
+    echo "   API returns valid JSON."
+    break
+  fi
+  echo "   Attempt $verify_attempt: API still returning invalid JSON, restarting Apache..."
+  docker exec "$MAGENTO_CONTAINER" bash -c "service apache2 restart 2>/dev/null || apachectl restart 2>/dev/null || true" || true
+  sleep 5
+done
 
 # ── 4. Seed products ──────────────────────────────────────────────────────
 echo "4. Seeding products..."
