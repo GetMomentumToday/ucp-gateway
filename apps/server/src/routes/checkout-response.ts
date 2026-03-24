@@ -65,7 +65,18 @@ function buildRawResponse(
     buyer: session.buyer,
     shipping_address: session.shipping_address,
     billing_address: session.billing_address,
-    order: session.order,
+    order: session.order
+      ? {
+          id: session.order.id,
+          checkout_id: session.order.checkout_id,
+          permalink_url: session.order.permalink_url,
+          line_items: session.order.line_items,
+          totals: session.order.totals,
+          fulfillment: session.order.fulfillment,
+          adjustments: session.order.adjustments,
+          created_at: session.order.created_at,
+        }
+      : null,
     order_id: session.order?.id,
     order_permalink_url: session.order?.permalink_url,
     continue_url: session.continue_url,

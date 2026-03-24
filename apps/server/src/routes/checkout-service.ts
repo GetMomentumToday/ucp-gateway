@@ -1,4 +1,11 @@
-import type { CheckoutSession, PlatformAdapter, SessionStore } from '@ucp-gateway/core';
+import type {
+  CheckoutSession,
+  PlatformAdapter,
+  SessionStore,
+  OrderConfirmation,
+  OrderFulfillment,
+  OrderFulfillmentExpectation,
+} from '@ucp-gateway/core';
 import { EscalationRequiredError } from '@ucp-gateway/core';
 import type { Redis as RedisType } from 'ioredis';
 import type { z } from 'zod';
@@ -124,6 +131,23 @@ async function enrichLineItems(
   }
 
   return { ok: true, items: enrichedItems as unknown as CheckoutSession['line_items'] };
+}
+
+function buildOrderFulfillment(session: CheckoutSession): OrderFulfillment | null {
+  if (!session.fulfillment) return null;
+
+  const expectations: readonly OrderFulfillmentExpectation[] = session.fulfillment.methods.flatMap(
+    (method) =>
+      (method.destinations ?? [])
+        .filter((d) => d.id === method.selected_destination_id)
+        .map((dest) => ({
+          method_id: method.id,
+          destination_id: dest.id,
+          line_item_ids: [...method.line_item_ids],
+        })),
+  );
+
+  return { expectations, events: [] };
 }
 
 export async function handleCreateSession(
@@ -384,12 +408,26 @@ export async function handleCompleteSession(
     };
     const placedOrder = await deps.adapter.placeOrder(cartId, paymentToken);
 
+    const orderFulfillment = buildOrderFulfillment(session);
+    const orderConfirmation: OrderConfirmation = {
+      id: placedOrder.id,
+      checkout_id: session.id,
+      permalink_url: `https://${deps.tenantDomain}/orders/${placedOrder.id}`,
+      line_items: session.line_items.map((li) => ({
+        id: li.id,
+        item: { ...li.item },
+        quantity: li.quantity,
+        totals: [...li.totals],
+      })),
+      totals: [...session.totals],
+      fulfillment: orderFulfillment,
+      adjustments: [],
+      created_at: new Date().toISOString(),
+    };
+
     const completed = await deps.sessionStore.update(sessionId, {
       status: 'completed',
-      order: {
-        id: placedOrder.id,
-        permalink_url: `https://${deps.tenantDomain}/orders/${placedOrder.id}`,
-      },
+      order: orderConfirmation,
     });
 
     return succeed(200, completed ?? session);

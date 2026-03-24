@@ -155,9 +155,59 @@ export interface CheckoutLink {
   readonly title?: string | undefined;
 }
 
+export interface OrderLineItem {
+  readonly id: string;
+  readonly item: {
+    readonly id: string;
+    readonly title?: string | undefined;
+    readonly price?: number | undefined;
+    readonly image_url?: string | undefined;
+  };
+  readonly quantity: number;
+  readonly totals: readonly Total[];
+}
+
+export interface OrderFulfillmentExpectation {
+  readonly method_id: string;
+  readonly destination_id: string;
+  readonly line_item_ids: readonly string[];
+  readonly estimated_arrival?: string | undefined;
+}
+
+export interface OrderFulfillmentEvent {
+  readonly id: string;
+  readonly occurred_at: string;
+  readonly type: 'shipped' | 'delivered' | 'in_transit' | 'returned' | 'canceled';
+  readonly line_item_ids?: readonly string[] | undefined;
+  readonly tracking_number?: string | undefined;
+  readonly tracking_url?: string | undefined;
+  readonly carrier?: string | undefined;
+}
+
+export interface OrderFulfillment {
+  readonly expectations: readonly OrderFulfillmentExpectation[];
+  readonly events: readonly OrderFulfillmentEvent[];
+}
+
+export interface OrderAdjustment {
+  readonly id: string;
+  readonly type: 'refund' | 'return' | 'credit' | 'price_adjustment' | 'dispute' | 'cancellation';
+  readonly occurred_at: string;
+  readonly status: 'pending' | 'completed' | 'failed';
+  readonly amount?: number | undefined;
+  readonly description?: string | undefined;
+  readonly line_item_ids?: readonly string[] | undefined;
+}
+
 export interface OrderConfirmation {
   readonly id: string;
+  readonly checkout_id: string;
   readonly permalink_url: string;
+  readonly line_items: readonly OrderLineItem[];
+  readonly totals: readonly Total[];
+  readonly fulfillment: OrderFulfillment | null;
+  readonly adjustments: readonly OrderAdjustment[];
+  readonly created_at: string;
 }
 
 export interface UCPMessage {
