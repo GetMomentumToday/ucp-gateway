@@ -1,15 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { BillingAddressClassSchema, BuyerClassSchema, PaymentCredentialSchema } from '@ucp-js/sdk';
-import {
-  AdapterError,
-  EscalationRequiredError,
-  type CheckoutSession,
-  type CheckoutDiscounts,
-  type AppliedDiscount,
-  type Total,
-} from '@ucp-gateway/core';
-import { MOCK_DISCOUNTS } from '@ucp-gateway/adapters';
+import { AdapterError, EscalationRequiredError, type CheckoutSession } from '@ucp-gateway/core';
 import {
   sendSessionError,
   isSessionExpired,
@@ -24,141 +15,14 @@ import {
   buildFulfillmentForUpdate,
   computeTotalsWithFulfillment,
 } from './fulfillment.js';
-
-/* ---------------------------------------------------------------------------
- * Request-validation schemas
- *
- * We derive these from the official @ucp-js/sdk primitives (BuyerClassSchema,
- * BillingAddressClassSchema, PaymentCredentialSchema) but keep them lenient
- * (most fields optional) so that existing callers and tests continue to work.
- *
- * Response validation uses the full ExtendedCheckoutResponseSchema — see
- * checkout-response.ts.
- * ------------------------------------------------------------------------- */
-
-const postalAddressSchema = BillingAddressClassSchema;
-
-const lineItemSchema = z.object({
-  item: z.object({ id: z.string().min(1) }),
-  quantity: z.coerce.number().int().min(1),
-});
-
-const instrumentSchema = z.object({
-  id: z.string().min(1),
-  handler_id: z.string().min(1),
-  handler_name: z.string().optional(),
-  type: z.string().min(1),
-  brand: z.string().optional(),
-  last_digits: z.string().optional(),
-  selected: z.boolean().optional(),
-  credential: PaymentCredentialSchema.partial().passthrough().optional(),
-  billing_address: postalAddressSchema.optional(),
-});
-
-const paymentHandlerSchema = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    version: z.string(),
-    spec: z.string().optional(),
-    config_schema: z.string().optional(),
-    instrument_schemas: z.array(z.string()).optional(),
-    config: z.record(z.unknown()).optional(),
-  })
-  .passthrough();
-
-const paymentSchema = z
-  .object({
-    instruments: z.array(instrumentSchema).optional(),
-    handlers: z.array(paymentHandlerSchema).optional(),
-  })
-  .passthrough()
-  .optional();
-
-const fulfillmentSchema = z
-  .object({
-    methods: z
-      .array(
-        z
-          .object({
-            id: z.string().optional(),
-            type: z.string().optional(),
-            destinations: z.array(z.record(z.unknown())).optional(),
-            selected_destination_id: z.string().optional(),
-            groups: z
-              .array(
-                z
-                  .object({ id: z.string().optional(), selected_option_id: z.string().optional() })
-                  .passthrough(),
-              )
-              .optional(),
-          })
-          .passthrough(),
-      )
-      .optional(),
-  })
-  .passthrough()
-  .optional();
-
-const discountsSchema = z
-  .object({
-    codes: z.array(z.string()).optional(),
-  })
-  .passthrough()
-  .optional();
-
-const createSessionSchema = z.object({
-  line_items: z.array(lineItemSchema),
-  currency: z.string().optional(),
-  buyer: BuyerClassSchema.extend({
-    shipping_address: postalAddressSchema.optional(),
-    billing_address: postalAddressSchema.optional(),
-  }).optional(),
-  context: z
-    .object({
-      address_country: z.string().optional(),
-      address_region: z.string().optional(),
-      postal_code: z.string().optional(),
-    })
-    .optional(),
-  payment: paymentSchema,
-  fulfillment: fulfillmentSchema,
-  discounts: discountsSchema,
-});
-
-const updateSessionSchema = z.object({
-  id: z.string().optional(),
-  line_items: z.array(lineItemSchema).optional(),
-  currency: z.string().optional(),
-  buyer: BuyerClassSchema.extend({
-    shipping_address: postalAddressSchema.optional(),
-    billing_address: postalAddressSchema.optional(),
-  }).optional(),
-  context: z
-    .object({
-      address_country: z.string().optional(),
-      address_region: z.string().optional(),
-      postal_code: z.string().optional(),
-    })
-    .optional(),
-  payment: paymentSchema,
-  fulfillment: fulfillmentSchema,
-  discounts: discountsSchema,
-});
-
-const completeSessionSchema = z
-  .object({
-    payment: z
-      .object({
-        instruments: z.array(instrumentSchema).min(1),
-      })
-      .optional(),
-    payment_data: instrumentSchema.optional(),
-    risk_signals: z.record(z.string()).optional(),
-  })
-  .refine((data) => data.payment?.instruments?.length || data.payment_data, {
-    message: 'Either payment.instruments or payment_data must be provided',
-  });
+import { enrichLineItemsWithPricing, computeCheckoutTotals } from './checkout-pricing.js';
+import { createPlatformCart } from './checkout-cart.js';
+import { validateFulfillmentSelected, shouldMarkReadyForComplete } from './checkout-validation.js';
+import {
+  createSessionSchema,
+  updateSessionSchema,
+  completeSessionSchema,
+} from './checkout-schemas.js';
 
 function getTenantLinkSettings(request: FastifyRequest): TenantLinkSettings | undefined {
   const settings = request.tenant?.settings;
@@ -180,71 +44,17 @@ function sendPublic(
   return reply.status(status).send(toPublicCheckoutResponse(session, tenantSettings));
 }
 
-/**
- * Process discount codes and return applied discounts with discount total.
- * Unknown codes are silently ignored.
- */
-function processDiscounts(codes: readonly string[], subtotal: number): CheckoutDiscounts {
-  const applied: AppliedDiscount[] = [];
-  let runningTotal = subtotal;
-
-  for (const code of codes) {
-    const discountDef = MOCK_DISCOUNTS.find((d) => d.code === code);
-    if (!discountDef) continue;
-
-    let amount: number;
-    if (discountDef.type === 'percentage') {
-      amount = runningTotal - Math.trunc(runningTotal * (1 - discountDef.value / 100));
-      runningTotal = Math.trunc(runningTotal * (1 - discountDef.value / 100));
-    } else {
-      amount = Math.min(discountDef.value, runningTotal);
-      runningTotal = runningTotal - amount;
-    }
-
-    applied.push({
-      code: discountDef.code,
-      type: discountDef.type,
-      amount,
-      description: discountDef.description,
-    });
-  }
-
-  return { codes: [...codes], applied };
-}
-
-/**
- * Compute totals from enriched line items, applying discounts if present.
- */
-function computeBaseTotals(
-  lineItems: readonly { readonly totals: readonly Total[] }[],
-  discountCodes: readonly string[] | undefined,
-  fulfillmentCost: number,
-): { readonly totals: readonly Total[]; readonly discounts: CheckoutDiscounts | null } {
-  const subtotal = lineItems.reduce((sum, li) => {
-    const liSubtotal = li.totals.find((t) => t.type === 'subtotal');
-    return sum + (liSubtotal?.amount ?? 0);
-  }, 0);
-
-  const totals: Total[] = [{ type: 'subtotal', amount: subtotal }];
-
-  let discounts: CheckoutDiscounts | null = null;
-  let discountAmount = 0;
-
-  if (discountCodes && discountCodes.length > 0) {
-    discounts = processDiscounts(discountCodes, subtotal);
-    discountAmount = discounts.applied.reduce((sum, d) => sum + d.amount, 0);
-    if (discountAmount > 0) {
-      totals.push({ type: 'discount', amount: -discountAmount, display_text: 'Discount' });
-    }
-  }
-
-  if (fulfillmentCost > 0) {
-    totals.push({ type: 'fulfillment', amount: fulfillmentCost, display_text: 'Shipping' });
-  }
-
-  totals.push({ type: 'total', amount: subtotal - discountAmount + fulfillmentCost });
-
-  return { totals, discounts };
+function extractFulfillmentCost(
+  session: CheckoutSession,
+  effectiveLineItems: CheckoutSession['line_items'],
+  fulfillment: NonNullable<CheckoutSession['fulfillment']>,
+): number {
+  const fulfillmentTotals = computeTotalsWithFulfillment(
+    { ...session, line_items: effectiveLineItems } as CheckoutSession,
+    fulfillment,
+  );
+  const fulfillmentCostEntry = fulfillmentTotals.find((t) => t.type === 'fulfillment');
+  return fulfillmentCostEntry?.amount ?? 0;
 }
 
 export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
@@ -271,75 +81,26 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
 
     const updateFields: Record<string, unknown> = {};
 
-    // Enrich line items with authoritative pricing from adapter
-    const enrichedItems = [];
-    for (let i = 0; i < parsed.data.line_items.length; i++) {
-      const li = parsed.data.line_items[i]!;
-      const productId = li.item.id;
+    const enrichResult = await enrichLineItemsWithPricing(
+      request.adapter,
+      parsed.data.line_items,
+      reply,
+    );
+    if (!enrichResult.ok) return enrichResult.reply;
 
-      try {
-        const product = await request.adapter.getProduct(productId);
-        if (!product.in_stock || product.stock_quantity < li.quantity) {
-          return sendSessionError(
-            reply,
-            'out_of_stock',
-            `Insufficient stock for product ${productId}`,
-            400,
-          );
-        }
-        enrichedItems.push({
-          id: `li-${i}`,
-          item: {
-            id: product.id,
-            title: product.title,
-            price: product.price_cents,
-            image_url: product.images[0],
-          },
-          quantity: li.quantity,
-          totals: [
-            { type: 'subtotal' as const, amount: product.price_cents * li.quantity },
-            { type: 'total' as const, amount: product.price_cents * li.quantity },
-          ],
-        });
-      } catch {
-        return sendSessionError(reply, 'product_not_found', `Product ${productId} not found`, 400);
-      }
-    }
-
-    const lineItems = enrichedItems;
+    const lineItems = enrichResult.items;
     updateFields['line_items'] = lineItems;
 
-    // Create platform cart and add items
-    try {
-      const cart = await request.adapter.createCart();
-      updateFields['cart_id'] = cart.id;
+    const cartId = await createPlatformCart(request.adapter, parsed.data.line_items, app.log);
+    if (cartId) updateFields['cart_id'] = cartId;
 
-      const cartLineItems = parsed.data.line_items.map((li) => ({
-        product_id: li.item.id,
-        title: li.item.id,
-        quantity: li.quantity,
-        unit_price_cents: 0,
-      }));
-      await request.adapter.addToCart(cart.id, cartLineItems);
-    } catch (err: unknown) {
-      const errMsg =
-        err instanceof Error && 'statusCode' in err
-          ? `[${(err as Error & { code: string }).code}] ${err.message}`
-          : err instanceof Error
-            ? err.message
-            : String(err);
-      app.log.warn('Platform cart error (cart_id may still be set): %s', errMsg);
-    }
-
-    // Compute totals from enriched items (no discounts on create)
-    const { totals: baseTotals } = computeBaseTotals(lineItems, undefined, 0);
+    const { totals: baseTotals } = computeCheckoutTotals(lineItems, undefined, 0);
     updateFields['totals'] = baseTotals;
 
     if (parsed.data.currency) updateFields['currency'] = parsed.data.currency;
     if (parsed.data.buyer) updateFields['buyer'] = parsed.data.buyer;
     if (parsed.data.payment) updateFields['payment'] = parsed.data.payment;
 
-    // Process fulfillment extension on create
     if (parsed.data.fulfillment) {
       const buyerEmail = parsed.data.buyer?.email ?? undefined;
       const fulfillment = buildFulfillmentForCreate(
@@ -354,11 +115,7 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
           fulfillment,
         );
         updateFields['totals'] = totals;
-        // If fulfillment option is selected, mark ready
-        const hasSelectedOption = fulfillment.methods.some((m) =>
-          m.groups.some((g) => g.selected_option_id),
-        );
-        if (hasSelectedOption) {
+        if (shouldMarkReadyForComplete(fulfillment)) {
           updateFields['status'] = 'ready_for_complete';
         }
       }
@@ -421,47 +178,14 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
 
       const updateData: Record<string, unknown> = {};
 
-      // Enrich line items with authoritative pricing
       if (parsed.data.line_items) {
-        const enrichedItems = [];
-        for (let i = 0; i < parsed.data.line_items.length; i++) {
-          const li = parsed.data.line_items[i]!;
-          const productId = li.item.id;
-
-          try {
-            const product = await request.adapter.getProduct(productId);
-            if (!product.in_stock || product.stock_quantity < li.quantity) {
-              return sendSessionError(
-                reply,
-                'out_of_stock',
-                `Insufficient stock for product ${productId}`,
-                400,
-              );
-            }
-            enrichedItems.push({
-              id: `li-${i}`,
-              item: {
-                id: product.id,
-                title: product.title,
-                price: product.price_cents,
-                image_url: product.images[0],
-              },
-              quantity: li.quantity,
-              totals: [
-                { type: 'subtotal' as const, amount: product.price_cents * li.quantity },
-                { type: 'total' as const, amount: product.price_cents * li.quantity },
-              ],
-            });
-          } catch {
-            return sendSessionError(
-              reply,
-              'product_not_found',
-              `Product ${productId} not found`,
-              400,
-            );
-          }
-        }
-        updateData['line_items'] = enrichedItems;
+        const enrichResult = await enrichLineItemsWithPricing(
+          request.adapter,
+          parsed.data.line_items,
+          reply,
+        );
+        if (!enrichResult.ok) return enrichResult.reply;
+        updateData['line_items'] = enrichResult.items;
       }
 
       if (parsed.data.buyer) {
@@ -472,14 +196,11 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
           updateData['billing_address'] = parsed.data.buyer.billing_address;
       }
 
-      // Determine effective line items for totals computation
       const effectiveLineItems =
         (updateData['line_items'] as CheckoutSession['line_items']) ?? session.line_items;
 
-      // Process discounts
       const discountCodes = parsed.data.discounts?.codes;
 
-      // Process fulfillment extension
       if (parsed.data.fulfillment) {
         const fulfillment = buildFulfillmentForUpdate(
           parsed.data.fulfillment as Record<string, unknown>,
@@ -487,19 +208,9 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
         );
         if (fulfillment) {
           updateData['fulfillment'] = fulfillment;
-          const effectiveSession: CheckoutSession = {
-            ...session,
-            line_items: effectiveLineItems,
-            fulfillment,
-          };
 
-          // Get fulfillment cost from computeTotalsWithFulfillment
-          const fulfillmentTotals = computeTotalsWithFulfillment(effectiveSession, fulfillment);
-          const fulfillmentCostEntry = fulfillmentTotals.find((t) => t.type === 'fulfillment');
-          const fulfillmentCost = fulfillmentCostEntry?.amount ?? 0;
-
-          // Compute totals with discounts and fulfillment
-          const { totals, discounts } = computeBaseTotals(
+          const fulfillmentCost = extractFulfillmentCost(session, effectiveLineItems, fulfillment);
+          const { totals, discounts } = computeCheckoutTotals(
             effectiveLineItems,
             discountCodes,
             fulfillmentCost,
@@ -507,28 +218,17 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
           updateData['totals'] = totals;
           if (discounts) updateData['discounts'] = discounts;
 
-          // Mark ready if an option is selected
-          const hasSelectedOption = fulfillment.methods.some((m) =>
-            m.groups.some((g) => g.selected_option_id),
-          );
-          if (hasSelectedOption) {
+          if (shouldMarkReadyForComplete(fulfillment)) {
             updateData['status'] = 'ready_for_complete';
           }
         }
       } else if (discountCodes && discountCodes.length > 0) {
-        // Discounts without fulfillment change
         const existingFulfillment = session.fulfillment;
-        let fulfillmentCost = 0;
-        if (existingFulfillment) {
-          const fulfillmentTotals = computeTotalsWithFulfillment(
-            { ...session, line_items: effectiveLineItems } as CheckoutSession,
-            existingFulfillment,
-          );
-          const fulfillmentCostEntry = fulfillmentTotals.find((t) => t.type === 'fulfillment');
-          fulfillmentCost = fulfillmentCostEntry?.amount ?? 0;
-        }
+        const fulfillmentCost = existingFulfillment
+          ? extractFulfillmentCost(session, effectiveLineItems, existingFulfillment)
+          : 0;
 
-        const { totals, discounts } = computeBaseTotals(
+        const { totals, discounts } = computeCheckoutTotals(
           effectiveLineItems,
           discountCodes,
           fulfillmentCost,
@@ -536,22 +236,14 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
         updateData['totals'] = totals;
         if (discounts) updateData['discounts'] = discounts;
       } else if (updateData['line_items'] || updateData['shipping_address']) {
-        // Line items or shipping address changed — recompute totals
         const existingFulfillment = session.fulfillment;
-        let fulfillmentCost = 0;
-        if (existingFulfillment) {
-          const fulfillmentTotals = computeTotalsWithFulfillment(
-            { ...session, line_items: effectiveLineItems } as CheckoutSession,
-            existingFulfillment,
-          );
-          const fulfillmentCostEntry = fulfillmentTotals.find((t) => t.type === 'fulfillment');
-          fulfillmentCost = fulfillmentCostEntry?.amount ?? 0;
-        }
+        const fulfillmentCost = existingFulfillment
+          ? extractFulfillmentCost(session, effectiveLineItems, existingFulfillment)
+          : 0;
 
-        const { totals } = computeBaseTotals(effectiveLineItems, undefined, fulfillmentCost);
+        const { totals } = computeCheckoutTotals(effectiveLineItems, undefined, fulfillmentCost);
         updateData['totals'] = totals;
 
-        // If shipping address was provided, mark session as ready
         if (updateData['shipping_address']) {
           updateData['status'] = 'ready_for_complete';
         }
@@ -588,11 +280,7 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
           409,
         );
 
-      // Check fulfillment is selected before allowing completion
-      const hasFulfillmentSelected = session.fulfillment?.methods.some(
-        (m) => m.selected_destination_id && m.groups.some((g) => g.selected_option_id),
-      );
-      if (!hasFulfillmentSelected) {
+      if (!validateFulfillmentSelected(session)) {
         return sendSessionError(
           reply,
           'fulfillment_required',
@@ -603,7 +291,6 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
 
       const cartId = session.cart_id ?? '';
 
-      // Resolve instrument from either payment.instruments or payment_data
       const selectedInstrument =
         parsed.data.payment_data ??
         parsed.data.payment?.instruments.find((i) => i.selected) ??

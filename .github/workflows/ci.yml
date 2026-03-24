@@ -68,6 +68,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: No descriptive comments
+        run: bash scripts/no-descriptive-comments.sh
+
       - name: Format check
         run: npm run format:check
 

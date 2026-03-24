@@ -233,10 +233,13 @@ export class MagentoAdapter implements PlatformAdapter {
    * Place Order (with payment method mapping + failure handling)
    * --------------------------------------------------------------------- */
 
+  /**
+   * Place an order on Magento.
+   * Magento requires: shipping address -> shipping method -> billing -> payment -> order.
+   */
   async placeOrder(cartId: string, payment: PaymentToken): Promise<Order> {
     const magentoMethod = mapPaymentHandlerToMagentoMethod(payment.provider);
 
-    // Magento requires: shipping address → shipping method → billing → payment → order
     const defaultAddress = {
       firstname: 'Guest',
       lastname: 'Checkout',
@@ -248,7 +251,6 @@ export class MagentoAdapter implements PlatformAdapter {
       telephone: '0000000000',
     };
 
-    // Set shipping info (address + method) — required before payment
     try {
       await this.post(`/rest/V1/guest-carts/${encodeURIComponent(cartId)}/shipping-information`, {
         addressInformation: {
@@ -259,7 +261,7 @@ export class MagentoAdapter implements PlatformAdapter {
         },
       });
     } catch {
-      // Shipping info may already be set from calculateTotals — continue
+      // NOTE: Shipping info may already be set from calculateTotals — continue
     }
 
     await this.setPaymentMethod(cartId, magentoMethod);
