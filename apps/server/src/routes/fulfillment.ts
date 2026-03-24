@@ -242,7 +242,8 @@ export async function buildFulfillmentForCreate(
       : null;
 
     const country = resolveDestinationCountry(selectedDestId, resolvedDests);
-    const options = adapterOptions ?? (country ? generateShippingOptions(country, lineItems) : undefined);
+    const options =
+      adapterOptions ?? (country ? generateShippingOptions(country, lineItems) : undefined);
 
     const clientGroups = m['groups'] as readonly Record<string, unknown>[] | undefined;
     const selectedOptionId = clientGroups?.[0]?.['selected_option_id'] as string | undefined;
