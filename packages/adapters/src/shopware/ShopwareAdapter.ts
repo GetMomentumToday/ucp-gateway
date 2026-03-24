@@ -1,6 +1,9 @@
 import type {
   Cart,
   CheckoutContext,
+  Fulfillment,
+  FulfillmentDestination,
+  FulfillmentOption,
   LineItem,
   Order,
   PaymentToken,
@@ -19,12 +22,14 @@ import type {
   ShopwareOrderResponse,
   ShopwareProduct,
   ShopwareProductListResponse,
+  ShopwareShippingMethodListResponse,
 } from './shopware-types.js';
 import {
   mapShopwareCart,
   mapShopwareCartToTotals,
   mapShopwareOrder,
   mapShopwareProduct,
+  mapShopwareShippingMethod,
   unwrapShopwareProduct,
 } from './shopware-mappers.js';
 
@@ -146,13 +151,169 @@ export class ShopwareAdapter implements PlatformAdapter {
     return mapShopwareCartToTotals(cart, this.cachedCurrency);
   }
 
-  async placeOrder(cartId: string, _payment: PaymentToken): Promise<Order> {
-    const response = await this.requestWithToken<ShopwareOrderResponse>(
+  async getFulfillmentOptions(
+    cartId: string,
+    destination: FulfillmentDestination,
+  ): Promise<Fulfillment> {
+    const countryIso = destination.address_country ?? destination.address?.address_country ?? '';
+    if (countryIso) {
+      const countryId = await this.resolveCountryId(cartId, countryIso);
+      await this.requestWithToken(cartId, 'PATCH', '/store-api/context', { countryId });
+    }
+
+    const response = await this.requestWithToken<ShopwareShippingMethodListResponse>(
       cartId,
+      'GET',
+      '/store-api/shipping-method',
+    );
+
+    const options: readonly FulfillmentOption[] = (response.elements ?? []).map(
+      mapShopwareShippingMethod,
+    );
+
+    const cart = await this.requestWithToken<ShopwareCartResponse>(
+      cartId,
+      'GET',
+      '/store-api/checkout/cart',
+    );
+    const lineItemIds = cart.lineItems.map((item) => item.referencedId);
+
+    return {
+      methods: [
+        {
+          id: 'shipping',
+          type: 'shipping',
+          line_item_ids: lineItemIds,
+          destinations: [destination],
+          selected_destination_id: destination.id,
+          groups: [
+            {
+              id: 'default',
+              line_item_ids: lineItemIds,
+              options,
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  async setShippingMethod(cartId: string, shippingMethodId: string): Promise<void> {
+    await this.requestWithToken(cartId, 'PATCH', '/store-api/context', { shippingMethodId });
+  }
+
+  async applyCoupon(cartId: string, code: string): Promise<Cart> {
+    const response = await this.requestWithToken<ShopwareCartResponse>(
+      cartId,
+      'POST',
+      '/store-api/checkout/cart/code',
+      { code },
+    );
+    return mapShopwareCart(response, this.cachedCurrency);
+  }
+
+  async removeCoupon(cartId: string, code: string): Promise<Cart> {
+    const response = await this.requestWithToken<ShopwareCartResponse>(
+      cartId,
+      'DELETE',
+      '/store-api/checkout/cart/code',
+      { code },
+    );
+    return mapShopwareCart(response, this.cachedCurrency);
+  }
+
+  /**
+   * Shopware Store API requires a logged-in customer to place orders.
+   * Guest registration returns a NEW context token — cart items must be re-added to the new session.
+   */
+  async placeOrder(cartId: string, payment: PaymentToken): Promise<Order> {
+    const countryId = await this.resolveCountryId(cartId, 'US');
+    const customerToken = await this.registerGuestCustomer(cartId, countryId);
+
+    if (payment.provider) {
+      try {
+        await this.requestWithToken(customerToken, 'PATCH', '/store-api/context', {
+          paymentMethodId: payment.provider,
+        });
+      } catch (err: unknown) {
+        if (err instanceof AdapterError) {
+          throw new AdapterError(
+            'INVALID_PAYMENT',
+            `Unsupported payment method: ${payment.provider}`,
+            402,
+          );
+        }
+        throw err;
+      }
+    }
+
+    const response = await this.requestWithToken<ShopwareOrderResponse>(
+      customerToken,
       'POST',
       '/store-api/checkout/order',
     );
     return mapShopwareOrder(response, this.cachedCurrency);
+  }
+
+  private async registerGuestCustomer(cartId: string, countryId: string): Promise<string> {
+    const salutationId = await this.resolveDefaultSalutationId(cartId);
+    const uniqueEmail = `guest-${Date.now()}@ucp-gateway.test`;
+    const savedToken = this.contextToken;
+    this.contextToken = cartId;
+
+    try {
+      const url = `${this.storeUrl}/store-api/account/register`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: this.buildHeaders(),
+        body: JSON.stringify({
+          guest: true,
+          email: uniqueEmail,
+          storefrontUrl: 'http://localhost',
+          salutationId,
+          firstName: 'Guest',
+          lastName: 'Checkout',
+          billingAddress: {
+            salutationId,
+            firstName: 'Guest',
+            lastName: 'Checkout',
+            street: 'N/A',
+            city: 'New York',
+            zipcode: '10001',
+            countryId,
+          },
+          shippingAddress: {
+            salutationId,
+            firstName: 'Guest',
+            lastName: 'Checkout',
+            street: 'N/A',
+            city: 'New York',
+            zipcode: '10001',
+            countryId,
+          },
+          acceptedDataProtection: true,
+        }),
+      });
+
+      const tokenHeader = response.headers.get('sw-context-token') ?? '';
+      const newToken = tokenHeader.split(',')[0]?.trim();
+      if (newToken) return newToken;
+      return cartId;
+    } catch {
+      return cartId;
+    } finally {
+      this.contextToken = savedToken;
+    }
+  }
+
+  private async resolveDefaultSalutationId(contextToken: string): Promise<string> {
+    const response = await this.requestWithToken<{
+      elements: readonly { id: string; salutationKey: string }[];
+    }>(contextToken, 'POST', '/store-api/salutation', {
+      filter: [{ type: 'equals', field: 'salutationKey', value: 'not_specified' }],
+      limit: 1,
+    });
+    return response.elements[0]?.id ?? '';
   }
 
   async getOrder(_id: string): Promise<Order> {

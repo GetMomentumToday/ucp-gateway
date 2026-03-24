@@ -1,18 +1,18 @@
-name: Magento E2E
+name: Shopware E2E
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
-      - 'packages/adapters/src/magento/**'
+      - 'packages/adapters/src/shopware/**'
       - 'apps/server/src/routes/checkout.ts'
-      - 'tests/e2e-magento/**'
+      - 'tests/e2e-shopware/**'
 
 permissions:
   contents: read
 
 jobs:
-  magento-e2e:
+  shopware-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -60,19 +60,24 @@ jobs:
           npm run build -w packages/adapters
           npm run build -w apps/server
 
-      - name: Start Magento platform
-        run: docker compose -f platforms/docker-compose.platforms.yml up -d magento magento-db magento-es
+      - name: Start Shopware (dockware)
+        run: |
+          docker run -d \
+            --name shopware \
+            -p 8888:80 \
+            dockware/dev:6.6.4.1
+          echo "Waiting for dockware container to initialize..."
 
-      - name: Setup Magento (install + seed products)
-        run: bash tests/e2e-magento/setup-magento.sh
+      - name: Setup Shopware (health check + seed products)
+        run: bash tests/e2e-shopware/setup-shopware.sh
         env:
-          MAGENTO_URL: http://localhost:8080
-          MAX_WAIT_SECONDS: 600
+          SHOPWARE_URL: http://localhost:8888
+          MAX_WAIT_SECONDS: 300
 
       - name: Seed UCP tenant
-        run: bash tests/e2e-magento/seed-tenant.sh
+        run: bash tests/e2e-shopware/seed-tenant.sh
         env:
-          MAGENTO_URL: http://localhost:8080
+          SHOPWARE_URL: http://localhost:8888
           GATEWAY_PORT: 3000
           DB_HOST: localhost
           DB_PORT: '5433'
@@ -94,7 +99,7 @@ jobs:
           curl -s http://localhost:3000/.well-known/ucp -H "UCP-Agent: test/1.0" | head -200
 
       - name: Run E2E checkout test
-        run: bash tests/e2e-magento/run-e2e-checkout.sh
+        run: bash tests/e2e-shopware/run-e2e-checkout.sh
         env:
           GATEWAY_URL: http://localhost:3000
 
@@ -103,13 +108,13 @@ jobs:
         run: |
           echo "=== Gateway logs ==="
           cat /tmp/ucp-server.log 2>/dev/null | tail -100 || true
-          echo "=== Magento container logs ==="
-          docker logs platforms-magento-1 2>&1 | tail -30 || true
+          echo "=== Shopware container logs ==="
+          docker logs shopware 2>&1 | tail -30 || true
           echo "=== Tenant in DB ==="
           PGPASSWORD=ucp psql -h localhost -p 5433 -U ucp -d ucp -c "SELECT slug, domain, platform, adapter_config FROM tenants;" 2>/dev/null || true
           echo "=== Test profile endpoint ==="
           curl -s http://localhost:3000/.well-known/ucp -H "UCP-Agent: debug/1.0" 2>/dev/null | head -50 || true
 
-      - name: Stop Magento
+      - name: Stop Shopware
         if: always()
-        run: docker compose -f platforms/docker-compose.platforms.yml down || true
+        run: docker rm -f shopware || true

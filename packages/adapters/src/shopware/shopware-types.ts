@@ -108,3 +108,30 @@ export interface ShopwareCountry {
 export interface ShopwareCountryListResponse {
   readonly elements: readonly ShopwareCountry[];
 }
+
+export interface ShopwareShippingMethodTranslated {
+  readonly name?: string | undefined;
+}
+
+export interface ShopwareCurrencyPrice {
+  readonly gross: number;
+  readonly net: number;
+  readonly currencyId: string;
+}
+
+export interface ShopwareShippingMethodPrice {
+  readonly currencyPrice?: readonly ShopwareCurrencyPrice[] | null | undefined;
+  readonly price?: number | undefined;
+}
+
+export interface ShopwareShippingMethod {
+  readonly id: string;
+  readonly name?: string | undefined;
+  readonly translated?: ShopwareShippingMethodTranslated | undefined;
+  readonly prices?: readonly ShopwareShippingMethodPrice[] | undefined;
+  readonly position?: number | undefined;
+}
+
+export interface ShopwareShippingMethodListResponse {
+  readonly elements: readonly ShopwareShippingMethod[];
+}
