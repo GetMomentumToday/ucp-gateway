@@ -52,25 +52,27 @@ fi
 echo "  Tax ID: $TAX_ID"
 
 # ── Get default currency ID ──────────────────────────────────────────────
-CURRENCY_ID=$(curl -s "${SHOPWARE_URL}/api/currency" \
+CURRENCY_ID="b7d2554b0ce847cd82f3ac9bd1c0dfca"
+echo "  Currency ID: $CURRENCY_ID (Shopware Defaults::CURRENCY)"
+
+SALES_CHANNEL_ID=$(curl -s "${SHOPWARE_URL}/api/sales-channel" \
   -H "$AUTH" -H 'Accept: application/json' \
   | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
-elements=d.get('data',[])
-if elements:
-  print(elements[0].get('id',''))
+for sc in d.get('data',[]):
+  if sc.get('name','') == 'Storefront':
+    print(sc['id']); break
 else:
-  print('')
+  if d.get('data'): print(d['data'][0]['id'])
 " 2>/dev/null || true)
 
-if [ -z "$CURRENCY_ID" ]; then
-  echo "ERROR: Could not find default currency ID."
+if [ -z "$SALES_CHANNEL_ID" ]; then
+  echo "ERROR: Could not find sales channel ID."
   exit 1
 fi
-echo "  Currency ID: $CURRENCY_ID"
+echo "  Sales Channel ID: $SALES_CHANNEL_ID"
 
-# ── Seed products ────────────────────────────────────────────────────────
 create_product() {
   local name="$1" number="$2" price="$3" stock="$4"
 
@@ -90,7 +92,11 @@ create_product() {
         \"net\": $price,
         \"linked\": false
       }],
-      \"active\": true
+      \"active\": true,
+      \"visibilities\": [{
+        \"salesChannelId\": \"$SALES_CHANNEL_ID\",
+        \"visibility\": 30
+      }]
     }")
 
   if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then

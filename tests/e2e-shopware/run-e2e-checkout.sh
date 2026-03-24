@@ -15,8 +15,25 @@ set -euo pipefail
 ##
 
 GATEWAY_URL="${GATEWAY_URL:-http://localhost:3000}"
+SHOPWARE_URL="${SHOPWARE_URL:-http://localhost:8888}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENT_HEADER="UCP-Agent: e2e-shopware-test/1.0"
 CONTENT_TYPE="Content-Type: application/json"
+
+ACCESS_KEY=""
+if [ -f "$SCRIPT_DIR/.shopware-access-key" ]; then
+  ACCESS_KEY=$(cat "$SCRIPT_DIR/.shopware-access-key" | tr -d '\n\r ')
+fi
+ACCESS_KEY="${ACCESS_KEY:-SWSCZHNVCVDZCK5SCDNRBJJ3UW}"
+
+PAYMENT_METHOD_ID=$(curl -s -X POST "${SHOPWARE_URL}/store-api/payment-method" \
+  -H "sw-access-key: $ACCESS_KEY" -H 'Content-Type: application/json' \
+  -d '{"limit":1}' | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+els=d.get('elements',[])
+print(els[0]['id'] if els else '')" 2>/dev/null || true)
+PAYMENT_METHOD_ID="${PAYMENT_METHOD_ID:-invoice}"
 
 PASS=0
 FAIL=0
@@ -72,7 +89,7 @@ echo ""
 
 # ── 3. Product search ─────────────────────────────────────────────────────
 echo "--- 3. Product search ---"
-SEARCH=$(curl -s "$GATEWAY_URL/ucp/products?q=UCP" -H "$AGENT_HEADER")
+SEARCH=$(curl -s "$GATEWAY_URL/ucp/products?q=Shoes" -H "$AGENT_HEADER")
 PRODUCT_ID=$(echo "$SEARCH" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
@@ -152,10 +169,10 @@ COMPLETE_RESP=$(curl -s -X POST "$GATEWAY_URL/checkout-sessions/$SESSION_ID/comp
     "payment": {
       "instruments": [{
         "id": "inst-1",
-        "handler_id": "cash_on_delivery",
+        "handler_id": "'"$PAYMENT_METHOD_ID"'",
         "type": "offline",
         "selected": true,
-        "credential": {"type": "cash_on_delivery"}
+        "credential": {"type": "'"$PAYMENT_METHOD_ID"'"}
       }]
     }
   }')
@@ -178,7 +195,7 @@ echo ""
 echo "--- 8. Idempotency — complete again returns same result ---"
 RETRY_RESP=$(curl -s -X POST "$GATEWAY_URL/checkout-sessions/$SESSION_ID/complete" \
   -H "$AGENT_HEADER" -H "$CONTENT_TYPE" \
-  -d '{"payment": {"instruments": [{"id": "inst-1", "handler_id": "cash_on_delivery", "type": "offline", "selected": true, "credential": {"type": "cash_on_delivery"}}]}}')
+  -d '{"payment": {"instruments": [{"id": "inst-1", "handler_id": "'"$PAYMENT_METHOD_ID"'", "type": "offline", "selected": true, "credential": {"type": "'"$PAYMENT_METHOD_ID"'"}}]}}')
 RETRY_STATUS=$(echo "$RETRY_RESP" | json_field ".get('status','?')")
 assert_eq "Re-complete returns completed (idempotent)" "completed" "$RETRY_STATUS"
 echo ""

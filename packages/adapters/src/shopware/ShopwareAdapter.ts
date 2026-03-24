@@ -222,10 +222,17 @@ export class ShopwareAdapter implements PlatformAdapter {
     return mapShopwareCart(response, this.cachedCurrency);
   }
 
+  /**
+   * Shopware Store API requires a logged-in customer to place orders.
+   * Guest registration returns a NEW context token — cart items must be re-added to the new session.
+   */
   async placeOrder(cartId: string, payment: PaymentToken): Promise<Order> {
+    const countryId = await this.resolveCountryId(cartId, 'US');
+    const customerToken = await this.registerGuestCustomer(cartId, countryId);
+
     if (payment.provider) {
       try {
-        await this.requestWithToken(cartId, 'PATCH', '/store-api/context', {
+        await this.requestWithToken(customerToken, 'PATCH', '/store-api/context', {
           paymentMethodId: payment.provider,
         });
       } catch (err: unknown) {
@@ -241,11 +248,72 @@ export class ShopwareAdapter implements PlatformAdapter {
     }
 
     const response = await this.requestWithToken<ShopwareOrderResponse>(
-      cartId,
+      customerToken,
       'POST',
       '/store-api/checkout/order',
     );
     return mapShopwareOrder(response, this.cachedCurrency);
+  }
+
+  private async registerGuestCustomer(cartId: string, countryId: string): Promise<string> {
+    const salutationId = await this.resolveDefaultSalutationId(cartId);
+    const uniqueEmail = `guest-${Date.now()}@ucp-gateway.test`;
+    const savedToken = this.contextToken;
+    this.contextToken = cartId;
+
+    try {
+      const url = `${this.storeUrl}/store-api/account/register`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: this.buildHeaders(),
+        body: JSON.stringify({
+          guest: true,
+          email: uniqueEmail,
+          storefrontUrl: 'http://localhost',
+          salutationId,
+          firstName: 'Guest',
+          lastName: 'Checkout',
+          billingAddress: {
+            salutationId,
+            firstName: 'Guest',
+            lastName: 'Checkout',
+            street: 'N/A',
+            city: 'New York',
+            zipcode: '10001',
+            countryId,
+          },
+          shippingAddress: {
+            salutationId,
+            firstName: 'Guest',
+            lastName: 'Checkout',
+            street: 'N/A',
+            city: 'New York',
+            zipcode: '10001',
+            countryId,
+          },
+          acceptedDataProtection: true,
+        }),
+      });
+
+      const tokenHeader = response.headers.get('sw-context-token') ?? '';
+      const newToken = tokenHeader.split(',')[0]?.trim();
+      if (newToken) return newToken;
+      return cartId;
+    } catch {
+      return cartId;
+    } finally {
+      this.contextToken = savedToken;
+    }
+  }
+
+  private async resolveDefaultSalutationId(contextToken: string): Promise<string> {
+    const response = await this.requestWithToken<{
+      elements: readonly { id: string; salutationKey: string }[];
+    }>(contextToken, 'POST', '/store-api/salutation', {
+      filter: [{ type: 'equals', field: 'salutationKey', value: 'not_specified' }],
+      limit: 1,
+    });
+    return response.elements[0]?.id ?? '';
   }
 
   async getOrder(_id: string): Promise<Order> {
