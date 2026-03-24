@@ -134,7 +134,7 @@ export function toPublicCheckoutResponse(
     tenantSettingsOrOptions !== null &&
     ('paymentHandlers' in tenantSettingsOrOptions || 'tenantSettings' in tenantSettingsOrOptions);
   const options: CheckoutResponseOptions = isOptionsObject
-    ? (tenantSettingsOrOptions as CheckoutResponseOptions)
+    ? tenantSettingsOrOptions
     : { tenantSettings: tenantSettingsOrOptions as TenantLinkSettings | undefined };
   const raw = buildRawResponse(session, options);
 
