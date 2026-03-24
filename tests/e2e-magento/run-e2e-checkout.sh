@@ -243,6 +243,183 @@ CANCEL_STATUS=$(echo "$CANCEL_RESP" | json_field ".get('status','?')")
 assert_eq "Cancel returns canceled" "canceled" "$CANCEL_STATUS"
 echo ""
 
+# ── 11. Non-existent session → 404 ──────────────────────────────────────
+echo "--- 11. Non-existent session returns 404 ---"
+T11_RESP=$(curl -s -w "\n%{http_code}" "$GATEWAY_URL/checkout-sessions/00000000-0000-0000-0000-000000000000" -H "$AGENT_HEADER")
+T11_CODE=$(echo "$T11_RESP" | tail -1)
+T11_BODY=$(echo "$T11_RESP" | sed '$d')
+T11_MSG_CODE=$(echo "$T11_BODY" | json_field ".get('messages',[{}])[0].get('code','?')")
+assert_eq "GET non-existent session returns 404" "404" "$T11_CODE"
+assert_eq "Message code is missing" "missing" "$T11_MSG_CODE"
+echo ""
+
+# ── 12. Invalid product → error ─────────────────────────────────────────
+echo "--- 12. Invalid product returns error ---"
+T12_RESP=$(curl -s -w "\n%{http_code}" -X POST "$GATEWAY_URL/checkout-sessions" \
+  -H "$AGENT_HEADER" -H "$CONTENT_TYPE" \
+  -d '{"line_items": [{"item": {"id": "nonexistent-product-xyz"}, "quantity": 1}]}')
+T12_CODE=$(echo "$T12_RESP" | tail -1)
+T12_BODY=$(echo "$T12_RESP" | sed '$d')
+T12_HAS_ERROR=$(echo "$T12_BODY" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+msgs = d.get('messages',[])
+has_err = any(m.get('severity','') in ('error','ERROR') or m.get('type','') == 'error' for m in msgs)
+print('true' if (has_err or not str(d.get('id',''))) else 'false')" 2>/dev/null || echo "true")
+if [ "$T12_CODE" != "201" ] || [ "$T12_HAS_ERROR" = "true" ]; then
+  TESTS=$((TESTS + 1)); PASS=$((PASS + 1))
+  echo "  [PASS] Invalid product rejected (HTTP $T12_CODE)"
+else
+  TESTS=$((TESTS + 1)); FAIL=$((FAIL + 1))
+  echo "  [FAIL] Invalid product was accepted without error (HTTP $T12_CODE)"
+fi
+echo ""
+
+# ── 13. Cancel from ready_for_complete ──────────────────────────────────
+echo "--- 13. Cancel from ready_for_complete ---"
+T13_CREATE=$(curl -s -X POST "$GATEWAY_URL/checkout-sessions" \
+  -H "$AGENT_HEADER" -H "$CONTENT_TYPE" \
+  -d "{\"line_items\": [{\"item\": {\"id\": \"$PRODUCT_ID\"}, \"quantity\": 1}]}")
+T13_SID=$(echo "$T13_CREATE" | json_field ".get('id','?')")
+
+T13_UPDATE=$(curl -s -X PUT "$GATEWAY_URL/checkout-sessions/$T13_SID" \
+  -H "$AGENT_HEADER" -H "$CONTENT_TYPE" \
+  -d "{
+    \"id\": \"$T13_SID\",
+    \"buyer\": {\"email\": \"cancel-ready@ucp-gateway.test\", \"first_name\": \"Cancel\", \"last_name\": \"Ready\"},
+    \"fulfillment\": {
+      \"destinations\": [{\"id\": \"d1\", \"address\": {\"street_address\": \"789 Cancel St\", \"address_locality\": \"New York\", \"address_region\": \"NY\", \"postal_code\": \"10001\", \"address_country\": \"US\"}}],
+      \"methods\": [{\"id\": \"m1\", \"type\": \"shipping\", \"selected_destination_id\": \"d1\", \"groups\": [{\"id\": \"g1\", \"selected_option_id\": \"o1\", \"options\": [{\"id\": \"o1\", \"label\": \"Flat Rate\", \"amount\": {\"value\": 500, \"currency\": \"USD\"}}]}]}]
+    }
+  }")
+T13_READY=$(echo "$T13_UPDATE" | json_field ".get('status','?')")
+assert_eq "Session is ready_for_complete before cancel" "ready_for_complete" "$T13_READY"
+
+T13_CANCEL=$(curl -s -X POST "$GATEWAY_URL/checkout-sessions/$T13_SID/cancel" -H "$AGENT_HEADER")
+T13_STATUS=$(echo "$T13_CANCEL" | json_field ".get('status','?')")
+assert_eq "Cancel from ready_for_complete returns canceled" "canceled" "$T13_STATUS"
+echo ""
+
+# ── 14. Cancel completed session → 409 ─────────────────────────────────
+echo "--- 14. Cancel completed session returns 409 ---"
+T14_RESP=$(curl -s -w "\n%{http_code}" -X POST "$GATEWAY_URL/checkout-sessions/$SESSION_ID/cancel" \
+  -H "$AGENT_HEADER")
+T14_CODE=$(echo "$T14_RESP" | tail -1)
+T14_BODY=$(echo "$T14_RESP" | sed '$d')
+T14_MSG=$(echo "$T14_BODY" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+msgs = d.get('messages',[])
+codes = [m.get('code','') for m in msgs]
+print('|'.join(codes))" 2>/dev/null || echo "")
+if [ "$T14_CODE" = "409" ] || echo "$T14_MSG" | grep -qi "INVALID_SESSION_STATE"; then
+  TESTS=$((TESTS + 1)); PASS=$((PASS + 1))
+  echo "  [PASS] Cancel completed session rejected (HTTP $T14_CODE)"
+else
+  TESTS=$((TESTS + 1)); FAIL=$((FAIL + 1))
+  echo "  [FAIL] Cancel completed session not rejected (HTTP $T14_CODE, msgs: $T14_MSG)"
+fi
+echo ""
+
+# ── 15. Update completed session → 409 ─────────────────────────────────
+echo "--- 15. Update completed session returns 409 ---"
+T15_RESP=$(curl -s -w "\n%{http_code}" -X PUT "$GATEWAY_URL/checkout-sessions/$SESSION_ID" \
+  -H "$AGENT_HEADER" -H "$CONTENT_TYPE" \
+  -d "{\"id\": \"$SESSION_ID\", \"buyer\": {\"email\": \"updated@ucp-gateway.test\", \"first_name\": \"Updated\", \"last_name\": \"Buyer\"}}")
+T15_CODE=$(echo "$T15_RESP" | tail -1)
+T15_BODY=$(echo "$T15_RESP" | sed '$d')
+T15_MSG=$(echo "$T15_BODY" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+msgs = d.get('messages',[])
+codes = [m.get('code','') for m in msgs]
+print('|'.join(codes))" 2>/dev/null || echo "")
+if [ "$T15_CODE" = "409" ] || echo "$T15_MSG" | grep -qi "INVALID_SESSION_STATE"; then
+  TESTS=$((TESTS + 1)); PASS=$((PASS + 1))
+  echo "  [PASS] Update completed session rejected (HTTP $T15_CODE)"
+else
+  TESTS=$((TESTS + 1)); FAIL=$((FAIL + 1))
+  echo "  [FAIL] Update completed session not rejected (HTTP $T15_CODE, msgs: $T15_MSG)"
+fi
+echo ""
+
+# ── 16. Multiple line items ─────────────────────────────────────────────
+echo "--- 16. Multiple line items ---"
+T16_RESP=$(curl -s -X POST "$GATEWAY_URL/checkout-sessions" \
+  -H "$AGENT_HEADER" -H "$CONTENT_TYPE" \
+  -d '{"line_items": [{"item": {"id": "ucp-shoes-001"}, "quantity": 1}, {"item": {"id": "ucp-sneakers-002"}, "quantity": 1}]}')
+T16_COUNT=$(echo "$T16_RESP" | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('line_items',[])))" 2>/dev/null || echo "0")
+T16_SUBTOTAL=$(echo "$T16_RESP" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+totals = d.get('totals',[])
+sub = next((t['amount'] for t in totals if t['type']=='subtotal'), 0)
+print(sub)" 2>/dev/null || echo "0")
+assert_eq "Has 2 line items" "2" "$T16_COUNT"
+assert_not_empty "Subtotal is computed for 2 items" "$T16_SUBTOTAL"
+T16_SID=$(echo "$T16_RESP" | json_field ".get('id','?')")
+curl -s -X POST "$GATEWAY_URL/checkout-sessions/$T16_SID/cancel" -H "$AGENT_HEADER" > /dev/null 2>&1 || true
+echo ""
+
+# ── 17. Option selection changes totals ─────────────────────────────────
+echo "--- 17. Option selection changes totals ---"
+T17_CREATE=$(curl -s -X POST "$GATEWAY_URL/checkout-sessions" \
+  -H "$AGENT_HEADER" -H "$CONTENT_TYPE" \
+  -d "{\"line_items\": [{\"item\": {\"id\": \"$PRODUCT_ID\"}, \"quantity\": 1}]}")
+T17_SID=$(echo "$T17_CREATE" | json_field ".get('id','?')")
+
+T17_UPD1=$(curl -s -X PUT "$GATEWAY_URL/checkout-sessions/$T17_SID" \
+  -H "$AGENT_HEADER" -H "$CONTENT_TYPE" \
+  -d "{
+    \"id\": \"$T17_SID\",
+    \"buyer\": {\"email\": \"totals-test@ucp-gateway.test\", \"first_name\": \"Totals\", \"last_name\": \"Test\"},
+    \"fulfillment\": {
+      \"destinations\": [{\"id\": \"d1\", \"address\": {\"street_address\": \"100 Totals St\", \"address_locality\": \"New York\", \"address_region\": \"NY\", \"postal_code\": \"10001\", \"address_country\": \"US\"}}],
+      \"methods\": [{\"id\": \"m1\", \"type\": \"shipping\", \"selected_destination_id\": \"d1\", \"groups\": [{\"id\": \"g1\", \"selected_option_id\": \"o1\", \"options\": [{\"id\": \"o1\", \"label\": \"Cheap Shipping\", \"amount\": {\"value\": 500, \"currency\": \"USD\"}}]}]}]
+    }
+  }")
+T17_TOTAL1=$(echo "$T17_UPD1" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+totals = d.get('totals',[])
+t = next((t['amount'] for t in totals if t['type']=='total'), 0)
+print(t)" 2>/dev/null || echo "0")
+
+T17_UPD2=$(curl -s -X PUT "$GATEWAY_URL/checkout-sessions/$T17_SID" \
+  -H "$AGENT_HEADER" -H "$CONTENT_TYPE" \
+  -d "{
+    \"id\": \"$T17_SID\",
+    \"buyer\": {\"email\": \"totals-test@ucp-gateway.test\", \"first_name\": \"Totals\", \"last_name\": \"Test\"},
+    \"fulfillment\": {
+      \"destinations\": [{\"id\": \"d1\", \"address\": {\"street_address\": \"100 Totals St\", \"address_locality\": \"New York\", \"address_region\": \"NY\", \"postal_code\": \"10001\", \"address_country\": \"US\"}}],
+      \"methods\": [{\"id\": \"m1\", \"type\": \"shipping\", \"selected_destination_id\": \"d1\", \"groups\": [{\"id\": \"g1\", \"selected_option_id\": \"o2\", \"options\": [{\"id\": \"o2\", \"label\": \"Express Shipping\", \"amount\": {\"value\": 1500, \"currency\": \"USD\"}}]}]}]
+    }
+  }")
+T17_TOTAL2=$(echo "$T17_UPD2" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+totals = d.get('totals',[])
+t = next((t['amount'] for t in totals if t['type']=='total'), 0)
+print(t)" 2>/dev/null || echo "0")
+
+if [ "$T17_TOTAL1" != "0" ] && [ "$T17_TOTAL2" != "0" ] && [ "$T17_TOTAL1" != "$T17_TOTAL2" ]; then
+  TESTS=$((TESTS + 1)); PASS=$((PASS + 1))
+  echo "  [PASS] Totals changed with different option ($T17_TOTAL1 → $T17_TOTAL2)"
+else
+  TESTS=$((TESTS + 1)); FAIL=$((FAIL + 1))
+  echo "  [FAIL] Totals did not change ($T17_TOTAL1 → $T17_TOTAL2)"
+fi
+curl -s -X POST "$GATEWAY_URL/checkout-sessions/$T17_SID/cancel" -H "$AGENT_HEADER" > /dev/null 2>&1 || true
+echo ""
+
+# ── 18. Request-Id echoed ───────────────────────────────────────────────
+echo "--- 18. Request-Id echoed ---"
+T18_RESP_HEADERS=$(curl -s -D - -o /dev/null "$GATEWAY_URL/checkout-sessions/$SESSION_ID" \
+  -H "$AGENT_HEADER" -H "Request-Id: test-e2e-123")
+T18_ECHO=$(echo "$T18_RESP_HEADERS" | grep -i "request-id" | grep -o "test-e2e-123" || echo "")
+assert_eq "Request-Id echoed in response" "test-e2e-123" "$T18_ECHO"
+echo ""
+
 # ── Summary ────────────────────────────────────────────────────────────────
 echo "========================================="
 echo "  Results: $PASS/$TESTS passed, $FAIL failed"
