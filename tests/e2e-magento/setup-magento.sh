@@ -23,12 +23,12 @@ echo "Magento URL: $MAGENTO_URL"
 echo ""
 
 # ── 1. Wait for Magento to be healthy ──────────────────────────────────────
-echo "1. Waiting for Magento to be healthy (max ${MAX_WAIT_SECONDS}s)..."
+echo "1. Waiting for Magento web server (max ${MAX_WAIT_SECONDS}s)..."
 elapsed=0
 while [ "$elapsed" -lt "$MAX_WAIT_SECONDS" ]; do
-  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${MAGENTO_URL}/rest/V1/store/storeConfigs" 2>/dev/null || echo "000")
-  if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ]; then
-    echo "   Magento is healthy after ${elapsed}s."
+  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${MAGENTO_URL}/" 2>/dev/null || echo "000")
+  if [ "$HTTP_CODE" != "000" ]; then
+    echo "   Web server responding (HTTP $HTTP_CODE) after ${elapsed}s."
     break
   fi
   sleep 5
@@ -39,7 +39,7 @@ while [ "$elapsed" -lt "$MAX_WAIT_SECONDS" ]; do
 done
 
 if [ "$elapsed" -ge "$MAX_WAIT_SECONDS" ]; then
-  echo "ERROR: Magento did not become healthy within ${MAX_WAIT_SECONDS}s."
+  echo "ERROR: Magento web server did not respond within ${MAX_WAIT_SECONDS}s."
   exit 1
 fi
 
@@ -71,6 +71,18 @@ else
     --no-interaction
   echo "   Installation complete."
 fi
+
+echo "   Waiting for Magento API to be ready..."
+api_wait=0
+while [ "$api_wait" -lt 120 ]; do
+  API_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${MAGENTO_URL}/rest/V1/store/storeConfigs" -H 'Accept: application/json' 2>/dev/null || echo "000")
+  if [ "$API_CODE" = "200" ] || [ "$API_CODE" = "401" ]; then
+    echo "   API ready (HTTP $API_CODE)."
+    break
+  fi
+  sleep 5
+  api_wait=$((api_wait + 5))
+done
 
 # ── 3. Set developer mode (skip DI compile) ────────────────────────────────
 echo "3. Setting developer mode..."
