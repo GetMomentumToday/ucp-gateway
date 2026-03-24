@@ -14,20 +14,25 @@ Every platform adapter MUST have a corresponding E2E CI workflow that:
 No adapter PR can be merged without a passing E2E test.
 
 ### Current E2E workflows:
+
 - Magento: `.github/workflows/test-magento-e2e.yml` + `tests/e2e-magento/`
 - Shopware: TODO
 
 ## Code Style Rules
 
 ### No Descriptive Comments
+
 Comments that describe WHAT code does are forbidden. Use function names instead.
+
 - Enforced by: `scripts/no-descriptive-comments.sh` (runs in CI)
 - Allowed: JSDoc, TODO/FIXME/NOTE/HACK, WHY-comments
 
 ### Thin Route Handlers (max 15 lines)
+
 Route handlers do ONLY: parse request → call service → send response.
 All business logic lives in service functions (`checkout-service.ts`).
 
 ### Build Order
+
 Workspaces must build in dependency order: `core` → `adapters` → `server`.
 The root `npm run build` handles this automatically.
