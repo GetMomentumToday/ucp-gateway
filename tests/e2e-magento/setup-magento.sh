@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 MAGENTO_URL="${MAGENTO_URL:-http://localhost:8080}"
+MAGENTO_CONTAINER="${MAGENTO_CONTAINER:-platforms-magento-1}"
 MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-600}"
 
 echo "=== Magento E2E Setup ==="
@@ -52,7 +53,7 @@ if [ "$INSTALL_CHECK" = "200" ] || [ "$INSTALL_CHECK" = "401" ]; then
   echo "   Magento is already installed."
 else
   echo "   Running Magento install..."
-  docker exec platforms-magento-1 php /var/www/html/bin/magento setup:install \
+  docker exec "$MAGENTO_CONTAINER" php /var/www/html/bin/magento setup:install \
     --base-url="$MAGENTO_URL" \
     --db-host=magento-db \
     --db-name=magento \
@@ -86,9 +87,12 @@ done
 
 # ── 3. Set developer mode (skip DI compile) ────────────────────────────────
 echo "3. Fixing permissions and setting developer mode..."
-docker exec platforms-magento-1 bash -c "chmod -R 777 /var/www/html/var /var/www/html/generated /var/www/html/pub/static 2>/dev/null" || true
-docker exec platforms-magento-1 php /var/www/html/bin/magento deploy:mode:set developer 2>/dev/null || true
-docker exec platforms-magento-1 php /var/www/html/bin/magento cache:flush 2>/dev/null || true
+docker exec "$MAGENTO_CONTAINER" bash -c "
+  mkdir -p /var/www/html/var/log /var/www/html/var/cache /var/www/html/var/page_cache /var/www/html/generated
+  chown -R www-data:www-data /var/www/html/var /var/www/html/generated 2>/dev/null
+  chmod -R 775 /var/www/html/var /var/www/html/generated 2>/dev/null
+" || true
+docker exec "$MAGENTO_CONTAINER" php /var/www/html/bin/magento deploy:mode:set developer 2>/dev/null || true
 
 # ── 4. Seed products ──────────────────────────────────────────────────────
 echo "4. Seeding products..."
@@ -98,23 +102,29 @@ bash "$PROJECT_ROOT/platforms/magento/setup-products.sh"
 echo ""
 echo "5. Generating admin token..."
 TOKEN=""
-for attempt in 1 2 3; do
-  RAW_TOKEN=$(curl -s -X POST "${MAGENTO_URL}/rest/V1/integration/admin/token" \
-    -H 'Content-Type: application/json' \
-    -H 'Accept: application/json' \
-    -d '{"username":"admin","password":"magentorocks1"}' || true)
-  TOKEN=$(echo "$RAW_TOKEN" | tr -d '"\n\r ' | grep -oE '[a-zA-Z0-9]{20,}' || true)
-  TOKEN=$(echo "$TOKEN" | head -1)
-  if [ -n "$TOKEN" ]; then
-    break
-  fi
-  echo "   Attempt $attempt: no token found in response: $(echo "$RAW_TOKEN" | head -1 | cut -c1-200)"
-  sleep 5
-done
+echo "   Trying CLI token generation..."
+TOKEN=$(docker exec "$MAGENTO_CONTAINER" php /var/www/html/bin/magento admin:token:create --admin-user admin 2>/dev/null | tr -d '\n\r ' | grep -oE '[a-zA-Z0-9]{20,}' || true)
+TOKEN=$(echo "$TOKEN" | head -1)
 
 if [ -z "$TOKEN" ]; then
-  echo "ERROR: Failed to get admin token after 3 attempts."
-  echo "Last raw response: $RAW_TOKEN"
+  echo "   CLI failed, trying REST API..."
+  for attempt in 1 2 3; do
+    RAW_TOKEN=$(curl -s -X POST "${MAGENTO_URL}/rest/V1/integration/admin/token" \
+      -H 'Content-Type: application/json' \
+      -H 'Accept: application/json' \
+      -d '{"username":"admin","password":"magentorocks1"}' || true)
+    TOKEN=$(echo "$RAW_TOKEN" | tr -d '"\n\r ' | grep -oE '[a-zA-Z0-9]{20,}' || true)
+    TOKEN=$(echo "$TOKEN" | head -1)
+    if [ -n "$TOKEN" ]; then
+      break
+    fi
+    echo "   Attempt $attempt: $(echo "$RAW_TOKEN" | head -1 | cut -c1-100)"
+    sleep 5
+  done
+fi
+
+if [ -z "$TOKEN" ]; then
+  echo "ERROR: Failed to get admin token via CLI and REST API."
   exit 1
 fi
 
