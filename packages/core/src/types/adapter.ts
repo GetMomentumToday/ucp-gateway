@@ -31,4 +31,8 @@ export interface PlatformAdapter {
   getFulfillmentOptions?(cartId: string, destination: FulfillmentDestination): Promise<Fulfillment>;
   setShippingMethod?(cartId: string, methodId: string): Promise<void>;
   getSupportedPaymentMethods?(): Promise<readonly PaymentHandler[]>;
+  applyCoupon?(
+    cartId: string,
+    code: string,
+  ): Promise<{ amount: number; type: string; description: string }>;
 }

@@ -12,7 +12,7 @@ import type {
   Order,
 } from '@ucp-gateway/core';
 import { AdapterError, notFound, outOfStock } from '@ucp-gateway/core';
-import { MOCK_PRODUCTS, MOCK_PROFILE } from './mock-data.js';
+import { MOCK_PRODUCTS, MOCK_PROFILE, MOCK_DISCOUNTS } from './mock-data.js';
 
 const MAX_STOCK_QUANTITY = 10;
 const FLAT_SHIPPING_CENTS = 999;
@@ -165,6 +165,21 @@ export class MockAdapter implements PlatformAdapter {
     if (!product) {
       throw notFound('PRODUCT_NOT_FOUND', productId);
     }
+  }
+
+  async applyCoupon(
+    _cartId: string,
+    code: string,
+  ): Promise<{ amount: number; type: string; description: string }> {
+    const discountDef = MOCK_DISCOUNTS.find((d) => d.code === code);
+    if (!discountDef) {
+      throw new AdapterError('COUPON_NOT_FOUND', `Unknown coupon code: ${code}`, 404);
+    }
+    return {
+      amount: discountDef.value,
+      type: discountDef.type,
+      description: discountDef.description,
+    };
   }
 
   async getOrder(id: string): Promise<Order> {

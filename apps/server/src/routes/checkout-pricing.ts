@@ -9,7 +9,6 @@ import type {
   Total,
   PlatformAdapter,
 } from '@ucp-gateway/core';
-import { MOCK_DISCOUNTS } from '@ucp-gateway/adapters';
 import { sendSessionError } from './checkout-helpers.js';
 import type { FastifyReply } from 'fastify';
 
@@ -82,46 +81,53 @@ export async function enrichLineItemsWithPricing(
   return { ok: true, items: enrichedItems };
 }
 
-/**
- * Process discount codes and return applied discounts with discount total.
- * Unknown codes are silently ignored.
- */
-function processDiscounts(codes: readonly string[], subtotal: number): CheckoutDiscounts {
+async function processDiscounts(
+  codes: readonly string[],
+  subtotal: number,
+  adapter?: PlatformAdapter,
+  cartId?: string,
+): Promise<CheckoutDiscounts> {
+  if (!adapter?.applyCoupon || !cartId) {
+    return { codes: [...codes], applied: [] };
+  }
+
   const applied: AppliedDiscount[] = [];
   let runningTotal = subtotal;
 
   for (const code of codes) {
-    const discountDef = MOCK_DISCOUNTS.find((d) => d.code === code);
-    if (!discountDef) continue;
+    try {
+      const discountDef = await adapter.applyCoupon(cartId, code);
 
-    let amount: number;
-    if (discountDef.type === 'percentage') {
-      amount = runningTotal - Math.trunc(runningTotal * (1 - discountDef.value / 100));
-      runningTotal = Math.trunc(runningTotal * (1 - discountDef.value / 100));
-    } else {
-      amount = Math.min(discountDef.value, runningTotal);
-      runningTotal = runningTotal - amount;
+      let amount: number;
+      if (discountDef.type === 'percentage') {
+        amount = runningTotal - Math.trunc(runningTotal * (1 - discountDef.amount / 100));
+        runningTotal = Math.trunc(runningTotal * (1 - discountDef.amount / 100));
+      } else {
+        amount = Math.min(discountDef.amount, runningTotal);
+        runningTotal = runningTotal - amount;
+      }
+
+      applied.push({
+        code,
+        type: discountDef.type as AppliedDiscount['type'],
+        amount,
+        description: discountDef.description,
+      });
+    } catch {
+      // NOTE: unknown codes are silently ignored
     }
-
-    applied.push({
-      code: discountDef.code,
-      type: discountDef.type,
-      amount,
-      description: discountDef.description,
-    });
   }
 
   return { codes: [...codes], applied };
 }
 
-/**
- * Compute totals from enriched line items, applying discounts and fulfillment cost.
- */
-export function computeCheckoutTotals(
+export async function computeCheckoutTotals(
   lineItems: readonly { readonly totals: readonly Total[] }[],
   discountCodes: readonly string[] | undefined,
   fulfillmentCost: number,
-): { readonly totals: readonly Total[]; readonly discounts: CheckoutDiscounts | null } {
+  adapter?: PlatformAdapter,
+  cartId?: string,
+): Promise<{ readonly totals: readonly Total[]; readonly discounts: CheckoutDiscounts | null }> {
   const subtotal = lineItems.reduce((sum, li) => {
     const liSubtotal = li.totals.find((t) => t.type === 'subtotal');
     return sum + (liSubtotal?.amount ?? 0);
@@ -133,7 +139,7 @@ export function computeCheckoutTotals(
   let discountAmount = 0;
 
   if (discountCodes && discountCodes.length > 0) {
-    discounts = processDiscounts(discountCodes, subtotal);
+    discounts = await processDiscounts(discountCodes, subtotal, adapter, cartId);
     discountAmount = discounts.applied.reduce((sum, d) => sum + d.amount, 0);
     if (discountAmount > 0) {
       totals.push({ type: 'discount', amount: -discountAmount, display_text: 'Discount' });
@@ -152,7 +158,7 @@ export function computeCheckoutTotals(
 /**
  * Extract fulfillment cost from a session with fulfillment, then compute totals.
  */
-export function computeTotalsForSessionWithFulfillment(
+export async function computeTotalsForSessionWithFulfillment(
   session: CheckoutSession,
   effectiveLineItems: CheckoutSession['line_items'],
   fulfillment: NonNullable<CheckoutSession['fulfillment']>,
@@ -161,7 +167,9 @@ export function computeTotalsForSessionWithFulfillment(
     session: CheckoutSession,
     fulfillment: NonNullable<CheckoutSession['fulfillment']>,
   ) => readonly Total[],
-): { readonly totals: readonly Total[]; readonly discounts: CheckoutDiscounts | null } {
+  adapter?: PlatformAdapter,
+  cartId?: string,
+): Promise<{ readonly totals: readonly Total[]; readonly discounts: CheckoutDiscounts | null }> {
   const effectiveSession: CheckoutSession = {
     ...session,
     line_items: effectiveLineItems,
@@ -171,5 +179,5 @@ export function computeTotalsForSessionWithFulfillment(
   const fulfillmentCostEntry = fulfillmentTotals.find((t) => t.type === 'fulfillment');
   const fulfillmentCost = fulfillmentCostEntry?.amount ?? 0;
 
-  return computeCheckoutTotals(effectiveLineItems, discountCodes, fulfillmentCost);
+  return computeCheckoutTotals(effectiveLineItems, discountCodes, fulfillmentCost, adapter, cartId);
 }

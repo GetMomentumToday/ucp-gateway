@@ -218,14 +218,18 @@ export class ShopwareAdapter implements PlatformAdapter {
     await this.requestWithToken(cartId, 'PATCH', '/store-api/context', { shippingMethodId });
   }
 
-  async applyCoupon(cartId: string, code: string): Promise<Cart> {
-    const response = await this.requestWithToken<ShopwareCartResponse>(
+  async applyCoupon(
+    cartId: string,
+    code: string,
+  ): Promise<{ amount: number; type: string; description: string }> {
+    await this.requestWithToken<ShopwareCartResponse>(
       cartId,
       'POST',
       '/store-api/checkout/cart/code',
       { code },
     );
-    return mapShopwareCart(response, this.cachedCurrency);
+    // NOTE: Shopware applies coupons server-side; actual discount appears in calculateTotals
+    return { amount: 0, type: 'platform_applied', description: code };
   }
 
   async removeCoupon(cartId: string, code: string): Promise<Cart> {

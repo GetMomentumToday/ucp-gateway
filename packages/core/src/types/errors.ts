@@ -6,6 +6,7 @@ export type AdapterErrorCode =
   | 'PRODUCT_NOT_FOUND'
   | 'ORDER_NOT_FOUND'
   | 'CART_NOT_FOUND'
+  | 'COUPON_NOT_FOUND'
   | 'OUT_OF_STOCK'
   | 'INVALID_PAYMENT'
   | 'PLATFORM_ERROR';

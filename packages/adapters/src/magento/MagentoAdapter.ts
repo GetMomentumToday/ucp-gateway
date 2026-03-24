@@ -183,12 +183,17 @@ export class MagentoAdapter implements PlatformAdapter {
    * Discount — Coupon Codes
    * --------------------------------------------------------------------- */
 
-  async applyCoupon(cartId: string, code: string): Promise<boolean> {
+  async applyCoupon(
+    cartId: string,
+    code: string,
+  ): Promise<{ amount: number; type: string; description: string }> {
     try {
-      return await this.put<boolean>(
+      await this.put<boolean>(
         `/rest/V1/guest-carts/${encodeURIComponent(cartId)}/coupons/${encodeURIComponent(code)}`,
         {},
       );
+      // NOTE: Magento applies coupons server-side; actual discount appears in calculateTotals
+      return { amount: 0, type: 'platform_applied', description: code };
     } catch (err: unknown) {
       if (err instanceof AdapterError && err.statusCode === 404) {
         throw new AdapterError('PLATFORM_ERROR', `Invalid coupon code: ${code}`, 404);

@@ -1,11 +1,5 @@
 /**
  * Fulfillment extension logic for checkout sessions.
- *
- * Responsible for:
- * - Building fulfillment method/group/option structures
- * - Resolving customer addresses from mock data
- * - Generating shipping options based on destination country
- * - Computing fulfillment costs (including free-shipping rules)
  */
 
 import { createHash } from 'node:crypto';
@@ -21,14 +15,6 @@ import type {
   PlatformAdapter,
   Total,
 } from '@ucp-gateway/core';
-import {
-  MOCK_CUSTOMERS,
-  MOCK_ADDRESSES,
-  MOCK_PRODUCTS,
-  FREE_SHIPPING_ITEM_IDS,
-  FREE_SHIPPING_THRESHOLD_CENTS,
-  toFulfillmentDestination,
-} from '@ucp-gateway/adapters';
 
 function generateAddressId(dest: FulfillmentDestination): string {
   const key = JSON.stringify({
@@ -42,17 +28,12 @@ function generateAddressId(dest: FulfillmentDestination): string {
   return `addr_${hash}`;
 }
 
-function findCustomerByEmail(email: string | undefined): string | undefined {
-  if (!email) return undefined;
-  const customer = MOCK_CUSTOMERS.find((c) => c.email.toLowerCase() === email.toLowerCase());
-  return customer?.id;
+function findCustomerByEmail(_email: string | undefined): string | undefined {
+  return undefined;
 }
 
-function getStoredAddresses(email: string | undefined): readonly FulfillmentDestination[] {
-  const customerId = findCustomerByEmail(email);
-  return customerId
-    ? MOCK_ADDRESSES.filter((a) => a.customer_id === customerId).map(toFulfillmentDestination)
-    : [];
+function getStoredAddresses(_email: string | undefined): readonly FulfillmentDestination[] {
+  return [];
 }
 
 /**
@@ -97,10 +78,8 @@ function resolveDestinations(
   return clientDestinations.map((dest) => assignAddressId(dest, stored));
 }
 
-function resolveItemPrice(itemId: string, storedPrice: number | undefined): number {
-  if (storedPrice && storedPrice > 0) return storedPrice;
-  const product = MOCK_PRODUCTS.find((p) => p.id === itemId);
-  return product?.price_cents ?? 0;
+function resolveItemPrice(_itemId: string, storedPrice: number | undefined): number {
+  return storedPrice && storedPrice > 0 ? storedPrice : 0;
 }
 
 function computeSubtotal(lineItems: readonly CheckoutSessionLineItem[]): number {
@@ -108,15 +87,6 @@ function computeSubtotal(lineItems: readonly CheckoutSessionLineItem[]): number 
     const price = resolveItemPrice(li.item.id, li.item.price);
     return sum + price * li.quantity;
   }, 0);
-}
-
-function hasFreeShippingItem(lineItems: readonly CheckoutSessionLineItem[]): boolean {
-  return lineItems.some((li) => FREE_SHIPPING_ITEM_IDS.includes(li.item.id));
-}
-
-function isFreeShipping(lineItems: readonly CheckoutSessionLineItem[]): boolean {
-  const subtotal = computeSubtotal(lineItems);
-  return subtotal > FREE_SHIPPING_THRESHOLD_CENTS || hasFreeShippingItem(lineItems);
 }
 
 function makeOptionTotals(subtotal: number, tax: number): readonly FulfillmentOptionTotal[] {
@@ -131,7 +101,12 @@ function generateShippingOptions(
   country: string,
   lineItems: readonly CheckoutSessionLineItem[],
 ): readonly FulfillmentOption[] {
-  const free = isFreeShipping(lineItems);
+  const freeShippingItemIds: readonly string[] = ['bouquet_roses'];
+  const freeShippingThresholdCents = 10000;
+
+  const subtotal = computeSubtotal(lineItems);
+  const hasFreeItem = lineItems.some((li) => freeShippingItemIds.includes(li.item.id));
+  const free = subtotal > freeShippingThresholdCents || hasFreeItem;
   const isUS = country.toUpperCase() === 'US';
 
   if (isUS) {

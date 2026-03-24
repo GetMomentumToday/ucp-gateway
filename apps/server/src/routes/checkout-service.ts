@@ -200,7 +200,7 @@ export async function handleCreateSession(
   );
   if (cartId) updateFields['cart_id'] = cartId;
 
-  const { totals: baseTotals } = computeCheckoutTotals(lineItems, undefined, 0);
+  const { totals: baseTotals } = await computeCheckoutTotals(lineItems, undefined, 0);
   updateFields['totals'] = baseTotals;
 
   if (body.currency) updateFields['currency'] = body.currency;
@@ -305,10 +305,12 @@ export async function handleUpdateSession(
     if (fulfillment) {
       updateData['fulfillment'] = fulfillment;
       const fulfillmentCost = extractFulfillmentCost(session, effectiveLineItems, fulfillment);
-      const { totals, discounts } = computeCheckoutTotals(
+      const { totals, discounts } = await computeCheckoutTotals(
         effectiveLineItems,
         discountCodes,
         fulfillmentCost,
+        deps.adapter,
+        session.cart_id ?? undefined,
       );
       updateData['totals'] = totals;
       if (discounts) updateData['discounts'] = discounts;
@@ -321,10 +323,12 @@ export async function handleUpdateSession(
     const fulfillmentCost = existingFulfillment
       ? extractFulfillmentCost(session, effectiveLineItems, existingFulfillment)
       : 0;
-    const { totals, discounts } = computeCheckoutTotals(
+    const { totals, discounts } = await computeCheckoutTotals(
       effectiveLineItems,
       discountCodes,
       fulfillmentCost,
+      deps.adapter,
+      session.cart_id ?? undefined,
     );
     updateData['totals'] = totals;
     if (discounts) updateData['discounts'] = discounts;
@@ -333,7 +337,7 @@ export async function handleUpdateSession(
     const fulfillmentCost = existingFulfillment
       ? extractFulfillmentCost(session, effectiveLineItems, existingFulfillment)
       : 0;
-    const { totals } = computeCheckoutTotals(effectiveLineItems, undefined, fulfillmentCost);
+    const { totals } = await computeCheckoutTotals(effectiveLineItems, undefined, fulfillmentCost);
     updateData['totals'] = totals;
     if (updateData['shipping_address']) {
       updateData['status'] = 'ready_for_complete';
