@@ -5,7 +5,9 @@ on:
   pull_request:
     paths:
       - 'packages/adapters/src/shopware/**'
-      - 'apps/server/src/routes/checkout.ts'
+      - 'packages/adapters/src/mock/**'
+      - 'packages/core/src/**'
+      - 'apps/server/src/routes/**'
       - 'tests/e2e-shopware/**'
 
 permissions:
