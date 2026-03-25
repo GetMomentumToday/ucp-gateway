@@ -4,7 +4,6 @@ const GATEWAY_URL = process.env.GATEWAY_URL ?? 'http://localhost:3000';
 const AGENT_HEADER = 'e2e-test/1.0';
 
 let PRODUCT_ID: string;
-let SECOND_PRODUCT_ID: string;
 
 interface TotalEntry {
   readonly type: string;
@@ -152,14 +151,11 @@ function findTotal(totals: readonly TotalEntry[] | undefined, type: string): num
   return totals.find((t) => t.type === type)?.amount;
 }
 
-async function discoverProductIds(): Promise<{ first: string; second: string }> {
+async function discoverProductIds(): Promise<{ first: string }> {
   const resp = await get('/ucp/products?q=shoes&limit=5');
   const body = (await resp.json()) as { products: readonly { id: string }[] };
   if (body.products.length < 1) throw new Error('No products found in Magento');
-  return {
-    first: body.products[0].id,
-    second: body.products.length > 1 ? body.products[1].id : body.products[0].id,
-  };
+  return { first: body.products[0].id };
 }
 
 async function createSession(productId?: string): Promise<SessionResponse> {
@@ -195,7 +191,6 @@ describe('Magento E2E Checkout', () => {
 
     const ids = await discoverProductIds();
     PRODUCT_ID = ids.first;
-    SECOND_PRODUCT_ID = ids.second;
   });
 
   describe('Checkout lifecycle', () => {
