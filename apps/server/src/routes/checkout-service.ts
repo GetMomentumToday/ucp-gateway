@@ -2,7 +2,7 @@ import type {
   CheckoutSession,
   PlatformAdapter,
   SessionStore,
-  OrderConfirmation,
+  UCPOrder,
   OrderFulfillment,
   OrderFulfillmentExpectation,
 } from '@ucp-gateway/core';
@@ -31,6 +31,8 @@ import type {
   updateSessionSchema,
   completeSessionSchema,
 } from './checkout-schemas.js';
+
+const UCP_VERSION = '2026-01-23';
 
 type CreateSessionBody = z.infer<typeof createSessionSchema>;
 type UpdateSessionBody = z.infer<typeof updateSessionSchema>;
@@ -133,17 +135,18 @@ async function enrichLineItems(
   return { ok: true, items: enrichedItems as unknown as CheckoutSession['line_items'] };
 }
 
-function buildOrderFulfillment(session: CheckoutSession): OrderFulfillment | null {
-  if (!session.fulfillment) return null;
+function buildOrderFulfillment(session: CheckoutSession): OrderFulfillment {
+  if (!session.fulfillment) return { expectations: [], events: [] };
 
   const expectations: readonly OrderFulfillmentExpectation[] = session.fulfillment.methods.flatMap(
     (method) =>
       (method.destinations ?? [])
         .filter((d) => d.id === method.selected_destination_id)
         .map((dest) => ({
-          method_id: method.id,
-          destination_id: dest.id,
-          line_item_ids: [...method.line_item_ids],
+          id: `exp-${method.id}-${dest.id}`,
+          line_items: method.line_item_ids.map((liId) => ({ id: liId, quantity: 1 })),
+          method_type: (method.type ?? 'shipping') as 'shipping' | 'pickup' | 'digital',
+          destination: dest.address ?? {},
         })),
   );
 
@@ -435,15 +438,20 @@ export async function handleCompleteSession(
     const placedOrder = await deps.adapter.placeOrder(cartId, paymentToken);
 
     const orderFulfillment = buildOrderFulfillment(session);
-    const orderConfirmation: OrderConfirmation = {
+    const ucpOrder: UCPOrder = {
+      ucp: {
+        version: UCP_VERSION,
+        capabilities: [{ name: 'dev.ucp.shopping.order', version: UCP_VERSION }],
+      },
       id: placedOrder.id,
       checkout_id: session.id,
       permalink_url: `https://${deps.tenantDomain}/orders/${placedOrder.id}`,
       line_items: session.line_items.map((li) => ({
         id: li.id,
         item: { ...li.item },
-        quantity: li.quantity,
+        quantity: { total: li.quantity, fulfilled: 0 },
         totals: [...li.totals],
+        status: 'processing' as const,
       })),
       totals: [...session.totals],
       fulfillment: orderFulfillment,
@@ -453,7 +461,7 @@ export async function handleCompleteSession(
 
     const completed = await deps.sessionStore.update(sessionId, {
       status: 'completed',
-      order: orderConfirmation,
+      order: ucpOrder,
     });
 
     return succeed(200, completed ?? session);

@@ -1,4 +1,4 @@
-import type { Cart, FulfillmentOption, LineItem, Order, Total } from '@ucp-gateway/core';
+import type { Cart, FulfillmentOption, LineItem, PlatformOrder, Total } from '@ucp-gateway/core';
 import type { Product } from '@ucp-gateway/core';
 import type {
   ShopwareCartLineItem,
@@ -102,7 +102,7 @@ function computeShippingCents(response: ShopwareCartResponse): number {
   return Math.max(0, totalCents - positionCents);
 }
 
-export function mapShopwareOrder(response: ShopwareOrderResponse, currency: string): Order {
+export function mapShopwareOrder(response: ShopwareOrderResponse, currency: string): PlatformOrder {
   return {
     id: response.id,
     status: mapOrderStatus(response.stateMachineState?.technicalName),
@@ -112,7 +112,7 @@ export function mapShopwareOrder(response: ShopwareOrderResponse, currency: stri
   };
 }
 
-function mapOrderStatus(technicalName: string | undefined): Order['status'] {
+function mapOrderStatus(technicalName: string | undefined): PlatformOrder['status'] {
   switch (technicalName) {
     case 'completed':
       return 'delivered';

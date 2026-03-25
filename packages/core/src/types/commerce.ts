@@ -140,13 +140,18 @@ export interface PaymentToken {
   readonly provider: string;
 }
 
-export interface Order {
+export type PlatformOrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'canceled';
+
+export interface PlatformOrder {
   readonly id: string;
-  readonly status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'canceled';
+  readonly status: PlatformOrderStatus;
   readonly total_cents: number;
   readonly currency: string;
   readonly created_at_iso: string;
 }
+
+/** @deprecated Use PlatformOrder instead */
+export type Order = PlatformOrder;
 
 export interface Buyer {
   readonly first_name?: string | undefined;
@@ -161,6 +166,13 @@ export interface CheckoutLink {
   readonly title?: string | undefined;
 }
 
+export type OrderLineItemStatus = 'processing' | 'partial' | 'fulfilled';
+
+export interface OrderLineItemQuantity {
+  readonly total: number;
+  readonly fulfilled: number;
+}
+
 export interface OrderLineItem {
   readonly id: string;
   readonly item: {
@@ -169,25 +181,35 @@ export interface OrderLineItem {
     readonly price?: number | undefined;
     readonly image_url?: string | undefined;
   };
-  readonly quantity: number;
+  readonly quantity: OrderLineItemQuantity;
   readonly totals: readonly Total[];
+  readonly status: OrderLineItemStatus;
+  readonly parent_id?: string | undefined;
+}
+
+export interface OrderFulfillmentLineItemRef {
+  readonly id: string;
+  readonly quantity: number;
 }
 
 export interface OrderFulfillmentExpectation {
-  readonly method_id: string;
-  readonly destination_id: string;
-  readonly line_item_ids: readonly string[];
-  readonly estimated_arrival?: string | undefined;
+  readonly id: string;
+  readonly line_items: readonly OrderFulfillmentLineItemRef[];
+  readonly method_type: 'shipping' | 'pickup' | 'digital';
+  readonly destination: PostalAddress;
+  readonly description?: string | undefined;
+  readonly fulfillable_on?: string | undefined;
 }
 
 export interface OrderFulfillmentEvent {
   readonly id: string;
   readonly occurred_at: string;
-  readonly type: 'shipped' | 'delivered' | 'in_transit' | 'returned' | 'canceled';
-  readonly line_item_ids?: readonly string[] | undefined;
+  readonly type: string;
+  readonly line_items: readonly OrderFulfillmentLineItemRef[];
   readonly tracking_number?: string | undefined;
   readonly tracking_url?: string | undefined;
   readonly carrier?: string | undefined;
+  readonly description?: string | undefined;
 }
 
 export interface OrderFulfillment {
@@ -197,24 +219,31 @@ export interface OrderFulfillment {
 
 export interface OrderAdjustment {
   readonly id: string;
-  readonly type: 'refund' | 'return' | 'credit' | 'price_adjustment' | 'dispute' | 'cancellation';
+  readonly type: string;
   readonly occurred_at: string;
   readonly status: 'pending' | 'completed' | 'failed';
+  readonly line_items?: readonly OrderFulfillmentLineItemRef[] | undefined;
   readonly amount?: number | undefined;
   readonly description?: string | undefined;
-  readonly line_item_ids?: readonly string[] | undefined;
 }
 
-export interface OrderConfirmation {
+export interface UCPOrder {
+  readonly ucp: {
+    readonly version: string;
+    readonly capabilities: readonly UCPCapability[];
+  };
   readonly id: string;
   readonly checkout_id: string;
   readonly permalink_url: string;
   readonly line_items: readonly OrderLineItem[];
   readonly totals: readonly Total[];
-  readonly fulfillment: OrderFulfillment | null;
+  readonly fulfillment: OrderFulfillment;
   readonly adjustments: readonly OrderAdjustment[];
   readonly created_at: string;
 }
+
+/** @deprecated Use UCPOrder instead */
+export type OrderConfirmation = UCPOrder;
 
 export interface UCPMessage {
   readonly type: 'error' | 'warning' | 'info';

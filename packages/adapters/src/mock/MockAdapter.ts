@@ -9,7 +9,7 @@ import type {
   Total,
   PaymentHandler,
   PaymentToken,
-  Order,
+  PlatformOrder,
   Fulfillment,
   FulfillmentDestination,
 } from '@ucp-gateway/core';
@@ -134,7 +134,7 @@ export class MockAdapter implements PlatformAdapter {
     ];
   }
 
-  async placeOrder(cartId: string, payment: PaymentToken): Promise<Order> {
+  async placeOrder(cartId: string, payment: PaymentToken): Promise<PlatformOrder> {
     if (!payment.token) {
       throw new Error('Payment token is required');
     }
@@ -221,7 +221,7 @@ export class MockAdapter implements PlatformAdapter {
     return;
   }
 
-  async getOrder(id: string): Promise<Order> {
+  async getOrder(id: string): Promise<PlatformOrder> {
     const order = this.orders.get(id);
     if (!order) {
       throw notFound('ORDER_NOT_FOUND', id);

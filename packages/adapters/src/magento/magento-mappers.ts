@@ -3,7 +3,7 @@ import type {
   Cart,
   LineItem,
   Total,
-  Order,
+  PlatformOrder,
   PostalAddress,
   Fulfillment,
   FulfillmentOption,
@@ -74,7 +74,7 @@ export function mapMagentoTotals(totals: MagentoTotals): readonly Total[] {
   ];
 }
 
-export function mapMagentoOrder(orderId: string, total: number, currency: string): Order {
+export function mapMagentoOrder(orderId: string, total: number, currency: string): PlatformOrder {
   return {
     id: orderId,
     status: 'processing',

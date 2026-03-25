@@ -9,7 +9,7 @@ import type {
   Total,
   PaymentToken,
   PaymentHandler,
-  Order,
+  PlatformOrder,
   Fulfillment,
   FulfillmentDestination,
 } from '@ucp-gateway/core';
@@ -254,7 +254,7 @@ export class MagentoAdapter implements PlatformAdapter {
    * Place an order on Magento.
    * Magento requires: shipping address -> shipping method -> billing -> payment -> order.
    */
-  async placeOrder(cartId: string, payment: PaymentToken): Promise<Order> {
+  async placeOrder(cartId: string, payment: PaymentToken): Promise<PlatformOrder> {
     const magentoMethod = mapPaymentHandlerToMagentoMethod(payment.provider);
 
     const defaultAddress = {
@@ -307,7 +307,7 @@ export class MagentoAdapter implements PlatformAdapter {
     }
   }
 
-  async getOrder(id: string): Promise<Order> {
+  async getOrder(id: string): Promise<PlatformOrder> {
     try {
       const order = await this.get<{
         entity_id: number;
@@ -383,8 +383,8 @@ function buildEstimateAddress(destination: FulfillmentDestination): Record<strin
   };
 }
 
-function mapMagentoOrderStatus(magentoStatus: string): Order['status'] {
-  const statusMap: Record<string, Order['status']> = {
+function mapMagentoOrderStatus(magentoStatus: string): PlatformOrder['status'] {
+  const statusMap: Record<string, PlatformOrder['status']> = {
     pending: 'pending',
     processing: 'processing',
     complete: 'delivered',

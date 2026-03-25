@@ -5,7 +5,7 @@ import type {
   FulfillmentDestination,
   FulfillmentOption,
   LineItem,
-  Order,
+  PlatformOrder,
   PaymentHandler,
   PaymentToken,
   PlatformAdapter,
@@ -247,7 +247,7 @@ export class ShopwareAdapter implements PlatformAdapter {
    * Shopware Store API requires a logged-in customer to place orders.
    * Guest registration returns a NEW context token — cart items must be re-added to the new session.
    */
-  async placeOrder(cartId: string, payment: PaymentToken): Promise<Order> {
+  async placeOrder(cartId: string, payment: PaymentToken): Promise<PlatformOrder> {
     const countryId = await this.resolveCountryId(cartId, 'US');
     const customerToken = await this.registerGuestCustomer(cartId, countryId);
 
@@ -337,7 +337,7 @@ export class ShopwareAdapter implements PlatformAdapter {
     return response.elements[0]?.id ?? '';
   }
 
-  async getOrder(_id: string): Promise<Order> {
+  async getOrder(_id: string): Promise<PlatformOrder> {
     throw new AdapterError(
       'PLATFORM_ERROR',
       'Shopware Store API does not support retrieving orders by ID',
