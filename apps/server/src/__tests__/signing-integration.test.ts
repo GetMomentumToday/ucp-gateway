@@ -27,14 +27,17 @@ describe('Integration: signing_keys in discovery profile', () => {
   it('returns signing_keys as a non-empty array', async () => {
     const res = await app.inject({ method: 'GET', url: '/.well-known/ucp', headers: HOST_HEADER });
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
+    const body = JSON.parse(res.body) as Record<string, unknown>;
     expect(Array.isArray(body['signing_keys'])).toBe(true);
-    expect(body['signing_keys'].length).toBeGreaterThan(0);
+    expect((body['signing_keys'] as unknown[]).length).toBeGreaterThan(0);
   });
 
   it('each signing key has all UCP-required JWK fields', async () => {
     const res = await app.inject({ method: 'GET', url: '/.well-known/ucp', headers: HOST_HEADER });
-    const keys = JSON.parse(res.body)['signing_keys'] as Record<string, unknown>[];
+    const keys = (JSON.parse(res.body) as Record<string, unknown>)['signing_keys'] as Record<
+      string,
+      unknown
+    >[];
     for (const key of keys) {
       expect(key['kty']).toBe('EC');
       expect(key['crv']).toBe('P-256');
@@ -49,7 +52,10 @@ describe('Integration: signing_keys in discovery profile', () => {
 
   it('signing key does NOT leak private key material (d)', async () => {
     const res = await app.inject({ method: 'GET', url: '/.well-known/ucp', headers: HOST_HEADER });
-    const keys = JSON.parse(res.body)['signing_keys'] as Record<string, unknown>[];
+    const keys = (JSON.parse(res.body) as Record<string, unknown>)['signing_keys'] as Record<
+      string,
+      unknown
+    >[];
     for (const key of keys) {
       expect(key['d']).toBeUndefined();
     }
@@ -66,23 +72,26 @@ describe('Integration: signing_keys in discovery profile', () => {
       url: '/.well-known/ucp',
       headers: HOST_HEADER,
     });
-    const keys1 = JSON.parse(res1.body)['signing_keys'];
-    const keys2 = JSON.parse(res2.body)['signing_keys'];
+    const keys1 = (JSON.parse(res1.body) as Record<string, unknown>)['signing_keys'];
+    const keys2 = (JSON.parse(res2.body) as Record<string, unknown>)['signing_keys'];
     expect(keys1).toEqual(keys2);
   });
 
   it('signing_keys coexist with payment and ucp fields', async () => {
     const res = await app.inject({ method: 'GET', url: '/.well-known/ucp', headers: HOST_HEADER });
-    const body = JSON.parse(res.body);
+    const body = JSON.parse(res.body) as Record<string, unknown>;
     expect(body).toHaveProperty('ucp');
     expect(body).toHaveProperty('payment');
     expect(body).toHaveProperty('signing_keys');
-    expect(body['ucp']['version']).toBe('2026-01-23');
+    expect((body['ucp'] as Record<string, unknown>)['version']).toBe('2026-01-23');
   });
 
   it('signing_keys x/y values are valid base64url (no padding)', async () => {
     const res = await app.inject({ method: 'GET', url: '/.well-known/ucp', headers: HOST_HEADER });
-    const keys = JSON.parse(res.body)['signing_keys'] as Record<string, unknown>[];
+    const keys = (JSON.parse(res.body) as Record<string, unknown>)['signing_keys'] as Record<
+      string,
+      unknown
+    >[];
     const b64urlPattern = /^[A-Za-z0-9_-]+$/;
     for (const key of keys) {
       expect(key['x']).toMatch(b64urlPattern);
@@ -92,7 +101,7 @@ describe('Integration: signing_keys in discovery profile', () => {
 
   it('the signing key can actually verify a signature from the gateway', async () => {
     const res = await app.inject({ method: 'GET', url: '/.well-known/ucp', headers: HOST_HEADER });
-    const keys = JSON.parse(res.body)['signing_keys'] as JsonWebKey[];
+    const keys = (JSON.parse(res.body) as Record<string, unknown>)['signing_keys'] as JsonWebKey[];
 
     const signingService = app.signingService;
     const body = new TextEncoder().encode('{"test":"verification"}');
@@ -225,7 +234,9 @@ describe('Integration: gateway outbound signing capability', () => {
       url: '/.well-known/ucp',
       headers: HOST_HEADER,
     });
-    const profileKeys = JSON.parse(profileRes.body)['signing_keys'] as JsonWebKey[];
+    const profileKeys = (JSON.parse(profileRes.body) as Record<string, unknown>)[
+      'signing_keys'
+    ] as JsonWebKey[];
 
     const webhookPayload = new TextEncoder().encode(
       JSON.stringify({ event: 'order_shipped', order_id: 'ord-99999' }),
@@ -241,7 +252,9 @@ describe('Integration: gateway outbound signing capability', () => {
       url: '/.well-known/ucp',
       headers: HOST_HEADER,
     });
-    const profileKeys = JSON.parse(profileRes.body)['signing_keys'] as JsonWebKey[];
+    const profileKeys = (JSON.parse(profileRes.body) as Record<string, unknown>)[
+      'signing_keys'
+    ] as JsonWebKey[];
 
     const original = new TextEncoder().encode(JSON.stringify({ amount: 1000 }));
     const sig = await app.signingService.sign(original);
@@ -274,7 +287,7 @@ describe('Integration: checkout flow preserves signing_keys', () => {
       url: '/.well-known/ucp',
       headers: HOST_HEADER,
     });
-    const keys1 = JSON.parse(profile1.body)['signing_keys'];
+    const keys1 = (JSON.parse(profile1.body) as Record<string, unknown>)['signing_keys'];
 
     await app.inject({
       method: 'POST',
@@ -290,7 +303,7 @@ describe('Integration: checkout flow preserves signing_keys', () => {
       url: '/.well-known/ucp',
       headers: HOST_HEADER,
     });
-    const keys2 = JSON.parse(profile2.body)['signing_keys'];
+    const keys2 = (JSON.parse(profile2.body) as Record<string, unknown>)['signing_keys'];
 
     expect(keys1).toEqual(keys2);
   });
@@ -314,19 +327,22 @@ describe('Integration: PR-15 spec compliance — signing_keys array', () => {
 
   it('signing_keys is an Array (PR-15 check passes)', async () => {
     const res = await app.inject({ method: 'GET', url: '/.well-known/ucp', headers: HOST_HEADER });
-    const body = JSON.parse(res.body);
+    const body = JSON.parse(res.body) as Record<string, unknown>;
     expect(Array.isArray(body['signing_keys'])).toBe(true);
   });
 
   it('signing_keys array is not empty (closes MUST gap)', async () => {
     const res = await app.inject({ method: 'GET', url: '/.well-known/ucp', headers: HOST_HEADER });
-    const keys = JSON.parse(res.body)['signing_keys'];
+    const keys = (JSON.parse(res.body) as Record<string, unknown>)['signing_keys'] as unknown[];
     expect(keys.length).toBeGreaterThanOrEqual(1);
   });
 
   it('each entry in signing_keys has kty=EC (not RSA, not OKP)', async () => {
     const res = await app.inject({ method: 'GET', url: '/.well-known/ucp', headers: HOST_HEADER });
-    const keys = JSON.parse(res.body)['signing_keys'] as Record<string, unknown>[];
+    const keys = (JSON.parse(res.body) as Record<string, unknown>)['signing_keys'] as Record<
+      string,
+      unknown
+    >[];
     for (const key of keys) {
       expect(key['kty']).toBe('EC');
     }
@@ -334,7 +350,7 @@ describe('Integration: PR-15 spec compliance — signing_keys array', () => {
 
   it('JSON serialisation of profile is valid JSON', async () => {
     const res = await app.inject({ method: 'GET', url: '/.well-known/ucp', headers: HOST_HEADER });
-    expect(() => JSON.parse(res.body)).not.toThrow();
+    expect(() => JSON.parse(res.body) as unknown).not.toThrow();
   });
 
   it('Content-Type is application/json', async () => {

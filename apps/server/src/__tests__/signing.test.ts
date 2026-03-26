@@ -158,7 +158,10 @@ describe('Detached JWS: signDetachedJws', () => {
   it('header segment decodes to valid JSON with alg + kid', async () => {
     const sig = await signDetachedJws(encoder.encode('x'), pair.privateKey, 'sign_tests');
     const headerB64 = sig.split('..')[0]!;
-    const headerJson = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
+    const headerJson = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/'))) as Record<
+      string,
+      unknown
+    >;
     expect(headerJson).toEqual({ alg: 'ES256', kid: 'sign_tests' });
   });
 
@@ -433,7 +436,7 @@ describe('SigningService: sign + verify round-trip', () => {
     const body = encoder.encode('{"checkout":"data"}');
     const sig = await svc.sign(body);
     const result = await svc.verify(sig, body, svc.getPublicKeys());
-    expect(result).toEqual({ valid: true, kid: expect.stringMatching(/^rt_/) });
+    expect(result).toEqual({ valid: true, kid: expect.stringMatching(/^rt_/) as string });
   });
 
   it('self-verifies empty body', async () => {
@@ -708,10 +711,10 @@ describe('UCP spec conformance: detached JWS format', () => {
 
     const headerB64 = sig.split('..')[0]!;
     const padded = headerB64.replace(/-/g, '+').replace(/_/g, '/');
-    const header = JSON.parse(atob(padded));
+    const header = JSON.parse(atob(padded)) as Record<string, unknown>;
     expect(Object.keys(header).sort()).toEqual(['alg', 'kid']);
-    expect(header.alg).toBe('ES256');
-    expect(typeof header.kid).toBe('string');
+    expect(header['alg']).toBe('ES256');
+    expect(typeof header['kid']).toBe('string');
   });
 });
 

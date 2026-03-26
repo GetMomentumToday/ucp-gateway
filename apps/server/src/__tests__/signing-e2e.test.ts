@@ -44,7 +44,7 @@ describe('E2E Signing: full journey', () => {
       headers: HOST,
     });
     expect(profileRes.statusCode).toBe(200);
-    const profile = JSON.parse(profileRes.body);
+    const profile = JSON.parse(profileRes.body) as Record<string, unknown>;
 
     // Step 2: agent extracts signing keys
     const signingKeys = profile['signing_keys'] as JsonWebKey[];
@@ -82,7 +82,9 @@ describe('E2E Signing: full journey', () => {
       url: '/.well-known/ucp',
       headers: HOST,
     });
-    const signingKeys = JSON.parse(profileRes.body)['signing_keys'] as JsonWebKey[];
+    const signingKeys = (JSON.parse(profileRes.body) as Record<string, unknown>)[
+      'signing_keys'
+    ] as JsonWebKey[];
 
     const originalPayload = JSON.stringify({ amount: 5000, currency: 'USD' });
     const signature = await app.signingService.sign(new TextEncoder().encode(originalPayload));
@@ -126,7 +128,9 @@ describe('E2E Signing: full journey', () => {
       url: '/.well-known/ucp',
       headers: HOST,
     });
-    const signingKeys = JSON.parse(profileRes.body)['signing_keys'] as JsonWebKey[];
+    const signingKeys = (JSON.parse(profileRes.body) as Record<string, unknown>)[
+      'signing_keys'
+    ] as JsonWebKey[];
     const verifyResult = await app.signingService.verify(signature, responseBytes, signingKeys);
     expect(verifyResult.valid).toBe(true);
   });
@@ -169,8 +173,8 @@ describe('E2E Signing: full journey', () => {
       headers: HOST,
     });
 
-    const keys1 = JSON.parse(fetch1.body)['signing_keys'];
-    const keys2 = JSON.parse(fetch2.body)['signing_keys'];
+    const keys1 = (JSON.parse(fetch1.body) as Record<string, unknown>)['signing_keys'];
+    const keys2 = (JSON.parse(fetch2.body) as Record<string, unknown>)['signing_keys'];
     expect(keys1).toEqual(keys2);
   });
 
@@ -182,7 +186,9 @@ describe('E2E Signing: full journey', () => {
       url: '/.well-known/ucp',
       headers: HOST,
     });
-    const signingKeys = JSON.parse(profileRes.body)['signing_keys'] as JsonWebKey[];
+    const signingKeys = (JSON.parse(profileRes.body) as Record<string, unknown>)[
+      'signing_keys'
+    ] as JsonWebKey[];
 
     const events = [
       'order_placed',
@@ -261,7 +267,9 @@ describe('E2E Signing: full journey', () => {
       url: '/.well-known/ucp',
       headers: HOST,
     });
-    const keys = JSON.parse(profileRes.body)['signing_keys'] as JsonWebKey[];
+    const keys = (JSON.parse(profileRes.body) as Record<string, unknown>)[
+      'signing_keys'
+    ] as JsonWebKey[];
 
     // Keys come from the gateway signing service, not from the adapter
     // So they should match what the signing service exposes directly

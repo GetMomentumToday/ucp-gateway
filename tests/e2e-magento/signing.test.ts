@@ -7,12 +7,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import {
-  SigningService,
-  verifyDetachedJws,
-  extractKidFromSignature,
-  importPublicKeyFromJwk,
-} from '@ucp-gateway/core';
+import { SigningService, importPublicKeyFromJwk } from '@ucp-gateway/core';
 import type { JsonWebKey } from '@ucp-gateway/core';
 
 const GATEWAY_URL = process.env.GATEWAY_URL ?? 'http://localhost:3000';
