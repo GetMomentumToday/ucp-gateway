@@ -36,8 +36,11 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
     const existingHandlers = profile.payment?.handlers ?? [];
     const mergedHandlers = existingHandlers.length > 0 ? existingHandlers : adapterHandlers;
 
+    const signingKeys = app.signingService.getPublicKeys();
+
     return {
       ...profile,
+      signing_keys: signingKeys,
       payment: {
         ...profile.payment,
         handlers: mergedHandlers,

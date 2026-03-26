@@ -45,6 +45,17 @@ describe('Integration: MockAdapter endpoints', () => {
       expect(Array.isArray(ucp['capabilities'])).toBe(true);
       expect(body).toHaveProperty('payment');
       expect(body).toHaveProperty('signing_keys');
+
+      const signingKeys = body['signing_keys'] as Record<string, unknown>[];
+      expect(signingKeys.length).toBeGreaterThan(0);
+      const key = signingKeys[0]!;
+      expect(key['kty']).toBe('EC');
+      expect(key['crv']).toBe('P-256');
+      expect(key['alg']).toBe('ES256');
+      expect(key['use']).toBe('sig');
+      expect(key['kid']).toBeDefined();
+      expect(key['x']).toBeDefined();
+      expect(key['y']).toBeDefined();
     });
   });
 

@@ -8,7 +8,13 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
 import { createContainer, asValue, asClass, InjectionMode, type AwilixContainer } from 'awilix';
 import type { Redis as RedisType } from 'ioredis';
-import { AdapterRegistry, SessionStore, TenantRepository, createDb } from '@ucp-gateway/core';
+import {
+  AdapterRegistry,
+  SessionStore,
+  SigningService,
+  TenantRepository,
+  createDb,
+} from '@ucp-gateway/core';
 import { MockAdapter } from '@ucp-gateway/adapters';
 import type { Cradle } from '../container/index.js';
 import type { Env } from '../config/env.js';
@@ -68,6 +74,9 @@ export async function buildTestApp(): Promise<{
     injectionMode: InjectionMode.CLASSIC,
   });
 
+  const signingService = new SigningService({ keyPrefix: 'test_gw' });
+  await signingService.initialize();
+
   container.register({
     env: asValue(TEST_ENV),
     db: asValue(db),
@@ -75,10 +84,12 @@ export async function buildTestApp(): Promise<{
     tenantRepository: asClass(TenantRepository, { injector: () => ({ db }) }),
     adapterRegistry: asValue(adapterRegistry),
     sessionStore: asValue(sessionStore as unknown as SessionStore),
+    signingService: asValue(signingService),
   });
 
   const app = Fastify({ logger: false });
   app.decorate('container', container);
+  app.decorate('signingService', signingService);
   await app.register(sensible);
   await app.register(errorHandlerPlugin);
 

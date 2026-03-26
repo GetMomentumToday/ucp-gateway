@@ -6,6 +6,7 @@ import {
   TenantRepository,
   AdapterRegistry,
   SessionStore,
+  SigningService,
   type Database,
 } from '@ucp-gateway/core';
 import { MockAdapter } from '@ucp-gateway/adapters';
@@ -17,6 +18,7 @@ export interface Cradle {
   tenantRepository: TenantRepository;
   adapterRegistry: AdapterRegistry;
   sessionStore: SessionStore;
+  signingService: SigningService;
 }
 
 export function createAppContainer(env: Env): AwilixContainer<Cradle> {
@@ -32,6 +34,11 @@ export function createAppContainer(env: Env): AwilixContainer<Cradle> {
 
   const sessionStore = new SessionStore(redis);
 
+  const signingService = new SigningService({
+    privateKeyJwk: env.UCP_SIGNING_KEY_JWK,
+    keyPrefix: 'ucp_gw',
+  });
+
   container.register({
     env: asValue(env),
     db: asValue(db),
@@ -41,6 +48,7 @@ export function createAppContainer(env: Env): AwilixContainer<Cradle> {
     }),
     adapterRegistry: asValue(adapterRegistry),
     sessionStore: asValue(sessionStore),
+    signingService: asValue(signingService),
   });
 
   return container;

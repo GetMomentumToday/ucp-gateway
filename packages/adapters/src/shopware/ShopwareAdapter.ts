@@ -59,7 +59,9 @@ export class ShopwareAdapter implements PlatformAdapter {
   private cachedCurrency = 'EUR';
 
   constructor(config: ShopwareConfig) {
-    this.storeUrl = config.storeUrl.replace(/\/+$/, '');
+    let url = config.storeUrl;
+    while (url.endsWith('/')) url = url.slice(0, -1);
+    this.storeUrl = url;
     this.accessKey = config.accessKey;
   }
 

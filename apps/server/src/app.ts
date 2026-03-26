@@ -6,6 +6,7 @@ import { errorHandlerPlugin } from './middleware/error-handler.js';
 import { tenantResolutionPlugin } from './middleware/tenant-resolution.js';
 import { agentHeaderPlugin } from './middleware/agent-header.js';
 import { requestIdPlugin } from './middleware/request-id.js';
+import { requestSignaturePlugin } from './middleware/request-signature.js';
 import { healthRoutes } from './routes/health.js';
 import { discoveryRoutes } from './routes/discovery.js';
 import { productRoutes } from './routes/products.js';
@@ -30,11 +31,16 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
   app.decorate('container', container);
 
+  const signingService = container.resolve('signingService');
+  await signingService.initialize();
+  app.decorate('signingService', signingService);
+
   await app.register(sensible);
   await app.register(errorHandlerPlugin);
   await app.register(requestIdPlugin);
   await app.register(tenantResolutionPlugin);
   await app.register(agentHeaderPlugin);
+  await app.register(requestSignaturePlugin);
 
   await app.register(healthRoutes);
   await app.register(discoveryRoutes);

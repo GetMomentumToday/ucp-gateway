@@ -58,6 +58,20 @@ export type { Database, DbConfig } from './infra/db.js';
 export { TenantRepository } from './infra/TenantRepository.js';
 export type { Tenant, CreateTenantInput, UpdateTenantInput } from './infra/TenantRepository.js';
 
+export { SigningService, type SigningServiceConfig } from './signing/index.js';
+export {
+  generateSigningKeyPair,
+  importPrivateKey,
+  importPublicKeyFromJwk,
+  buildKeyId,
+  signDetachedJws,
+  verifyDetachedJws,
+  extractKidFromSignature,
+  ALG,
+  CRV,
+  type SigningKeyPair,
+} from './signing/index.js';
+
 export { SessionStore } from './session/SessionStore.js';
 export type {
   CheckoutSession,
