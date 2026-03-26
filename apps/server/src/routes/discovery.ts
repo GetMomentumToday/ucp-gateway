@@ -2,15 +2,14 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { PlatformAdapter, PaymentHandler, UCPPaymentHandler } from '@ucp-gateway/core';
 
 const UCP_VERSION = '2026-01-23';
-const UCP_SPEC_URL = 'https://ucp.dev/latest/specification/overview/';
 
 function toUCPPaymentHandler(handler: PaymentHandler): UCPPaymentHandler {
   return {
     id: handler.id,
     name: handler.name,
     version: UCP_VERSION,
-    spec: UCP_SPEC_URL,
-    config_schema: UCP_SPEC_URL,
+    spec: 'https://ucp.dev/latest/specification/checkout/',
+    config_schema: `https://ucp.dev/${UCP_VERSION}/schemas/shopping/payment-handler.json`,
     instrument_schemas: [],
     config: {},
   };
