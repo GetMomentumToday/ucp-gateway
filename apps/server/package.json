@@ -19,7 +19,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "@fastify/sensible": "^5.6.0",
+    "@fastify/sensible": "^6.0.4",
     "@ucp-gateway/adapters": "*",
     "@ucp-gateway/core": "*",
     "@ucp-js/sdk": "^0.1.0",
