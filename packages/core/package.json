@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@ucp-js/sdk": "^0.1.0",
-    "drizzle-orm": "^0.30.0",
+    "drizzle-orm": "^0.45.1",
     "ioredis": "^5.4.0",
     "jose": "^6.2.2",
     "postgres": "^3.4.0"
