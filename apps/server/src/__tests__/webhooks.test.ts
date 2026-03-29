@@ -92,10 +92,12 @@ describe('WebhookSender', () => {
     mockSigningService = {
       initialize: vi.fn(),
       getPublicKeys: vi.fn(),
-      sign: vi.fn().mockResolvedValue('mock.detached.jws'),
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      sign: vi.fn().mockResolvedValue('mock.detached.jws') as never,
       verify: vi.fn(),
     };
-    globalThis.fetch = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    globalThis.fetch = vi.fn() as never;
   });
 
   it('sends a signed webhook with correct headers', async () => {
@@ -132,9 +134,9 @@ describe('WebhookSender', () => {
     expect(mockSigningService.sign).toHaveBeenCalledOnce();
     const signedBytes = mockSigningService.sign.mock.calls[0]![0] as Uint8Array;
     const bodyStr = new TextDecoder().decode(signedBytes);
-    const parsed = JSON.parse(bodyStr);
-    expect(parsed.id).toBe('evt-test-001');
-    expect(parsed.type).toBe('order.created');
+    const parsed = JSON.parse(bodyStr) as Record<string, unknown>;
+    expect(parsed['id']).toBe('evt-test-001');
+    expect(parsed['type']).toBe('order.created');
   });
 
   it('returns retryable=true on 5xx responses', async () => {

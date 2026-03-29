@@ -477,10 +477,12 @@ describe('WebhookSender: HTTP delivery edge cases', () => {
     mockSigning = {
       initialize: vi.fn(),
       getPublicKeys: vi.fn(),
-      sign: vi.fn().mockResolvedValue('mock..sig'),
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      sign: vi.fn().mockResolvedValue('mock..sig') as never,
       verify: vi.fn(),
     };
-    globalThis.fetch = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    globalThis.fetch = vi.fn() as never;
   });
 
   it('treats 301 redirect as non-retryable failure', async () => {
@@ -710,7 +712,7 @@ describe('webhook-bridge: tenant settings and URL extraction', () => {
     eventBus.emit(createTestEvent({ tenant_id: 'ghost-tenant' }));
 
     await vi.waitFor(() => expect(mockLogger.warn).toHaveBeenCalled());
-    expect(mockLogger.warn.mock.calls[0]![0]).toContain('ghost-tenant');
+    expect(String((mockLogger.warn.mock.calls as string[][])[0]![0])).toContain('ghost-tenant');
 
     eventBus.removeAllListeners();
   });
@@ -729,7 +731,9 @@ describe('webhook-bridge: tenant settings and URL extraction', () => {
     eventBus.emit(createTestEvent());
 
     await vi.waitFor(() => expect(mockLogger.warn).toHaveBeenCalled());
-    expect(mockLogger.warn.mock.calls[0]![0]).toContain('DB connection lost');
+    expect(String((mockLogger.warn.mock.calls as string[][])[0]![0])).toContain(
+      'DB connection lost',
+    );
 
     eventBus.removeAllListeners();
   });
@@ -753,7 +757,9 @@ describe('webhook-bridge: tenant settings and URL extraction', () => {
     eventBus.emit(createTestEvent({ tenant_id: 'tenant-005' }));
 
     await vi.waitFor(() => expect(mockLogger.warn).toHaveBeenCalled());
-    expect(mockLogger.warn.mock.calls[0]![0]).toContain('Redis unavailable');
+    expect(String((mockLogger.warn.mock.calls as string[][])[0]![0])).toContain(
+      'Redis unavailable',
+    );
 
     eventBus.removeAllListeners();
   });
