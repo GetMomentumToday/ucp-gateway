@@ -1,8 +1,8 @@
 /**
  * Zod request-validation schemas for checkout endpoints.
  *
- * Derived from the official @ucp-js/sdk primitives (BuyerClassSchema,
- * BillingAddressClassSchema, PaymentCredentialSchema) but kept lenient
+ * Derived from the official @omnixhq/ucp-js-sdk primitives (BuyerSchema,
+ * PostalAddressSchema, ExtendedPaymentCredentialSchema) but kept lenient
  * (most fields optional) so that existing callers and tests continue to work.
  *
  * Response validation uses the full ExtendedCheckoutResponseSchema — see
@@ -10,9 +10,13 @@
  */
 
 import { z } from 'zod';
-import { BillingAddressClassSchema, BuyerClassSchema, PaymentCredentialSchema } from '@ucp-js/sdk';
+import {
+  PostalAddressSchema,
+  BuyerSchema,
+  ExtendedPaymentCredentialSchema,
+} from '@omnixhq/ucp-js-sdk';
 
-const postalAddressSchema = BillingAddressClassSchema;
+const postalAddressSchema = PostalAddressSchema;
 
 const lineItemSchema = z.object({
   item: z.object({ id: z.string().min(1) }),
@@ -27,7 +31,7 @@ const instrumentSchema = z.object({
   brand: z.string().optional(),
   last_digits: z.string().optional(),
   selected: z.boolean().optional(),
-  credential: PaymentCredentialSchema.partial().passthrough().optional(),
+  credential: ExtendedPaymentCredentialSchema.partial().passthrough().optional(),
   billing_address: postalAddressSchema.optional(),
 });
 
@@ -86,7 +90,7 @@ const discountsSchema = z
 export const createSessionSchema = z.object({
   line_items: z.array(lineItemSchema),
   currency: z.string().min(1).default('USD'),
-  buyer: BuyerClassSchema.extend({
+  buyer: BuyerSchema.extend({
     shipping_address: postalAddressSchema.optional(),
     billing_address: postalAddressSchema.optional(),
   }).optional(),
@@ -106,7 +110,7 @@ export const updateSessionSchema = z.object({
   id: z.string().min(1),
   line_items: z.array(lineItemSchema).optional(),
   currency: z.string().min(1).optional(),
-  buyer: BuyerClassSchema.extend({
+  buyer: BuyerSchema.extend({
     shipping_address: postalAddressSchema.optional(),
     billing_address: postalAddressSchema.optional(),
   }).optional(),

@@ -3,6 +3,7 @@ import type {
   PlatformAdapter,
   SessionStore,
   UCPOrder,
+  UCPMessage,
   OrderFulfillment,
   OrderFulfillmentExpectation,
   EventBus,
@@ -433,7 +434,7 @@ export async function handleCompleteSession(
   try {
     const paymentToken = {
       token: paymentTokenValue,
-      provider: selectedInstrument.handler_id,
+      provider: String(selectedInstrument.handler_id ?? ''),
     };
     const placedOrder = await deps.adapter.placeOrder(cartId, paymentToken, {
       shipping_address: session.shipping_address ?? undefined,
@@ -447,7 +448,9 @@ export async function handleCompleteSession(
     const ucpOrder: UCPOrder = {
       ucp: {
         version: UCP_VERSION,
-        capabilities: [{ name: 'dev.ucp.shopping.order', version: UCP_VERSION }],
+        capabilities: {
+          'dev.ucp.shopping.order': [{ version: UCP_VERSION }],
+        },
       },
       id: placedOrder.id,
       checkout_id: session.id,
@@ -481,10 +484,11 @@ export async function handleCompleteSession(
     return succeed(200, completed ?? session);
   } catch (err: unknown) {
     if (err instanceof EscalationRequiredError) {
-      const escalationMessage = {
+      const escalationMessage: UCPMessage = {
         type: 'error' as const,
         code: 'escalation_required',
         content: err.escalation.reason ?? 'Payment requires additional verification',
+        content_type: 'plain' as const,
         severity: 'requires_buyer_review' as const,
       };
       const existingMessages = session.messages ?? [];

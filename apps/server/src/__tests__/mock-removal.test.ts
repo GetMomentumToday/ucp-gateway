@@ -113,7 +113,7 @@ describe('computeCheckoutTotals', () => {
     expect(result.discounts!.applied[0]!.amount).toBe(1000);
 
     const discountTotal = result.totals.find((t) => t.type === 'discount');
-    expect(discountTotal?.amount).toBe(-1000);
+    expect(discountTotal?.amount).toBe(1000);
 
     const total = result.totals.find((t) => t.type === 'total');
     expect(total?.amount).toBe(9000);

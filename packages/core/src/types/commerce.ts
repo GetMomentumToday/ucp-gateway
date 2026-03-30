@@ -2,55 +2,57 @@
  * Normalised commerce domain types shared across all adapters.
  * All monetary values are integers in the smallest currency unit (cents).
  * All types are immutable.
- * Field names follow UCP spec at https://ucp.dev/latest/specification/
+ *
+ * Types that match UCP spec are re-exported from @omnixhq/ucp-js-sdk.
+ * Gateway-internal types (Product, Cart, LineItem, etc.) stay local.
  */
+
+import type { z } from 'zod';
+import type {
+  PostalAddressSchema,
+  BuyerSchema,
+  TotalSchema,
+  LinkSchema,
+  MessageError as SdkMessageError,
+  MessageWarning as SdkMessageWarning,
+  MessageInfo as SdkMessageInfo,
+  ServiceResponse,
+  CapabilityResponse,
+} from '@omnixhq/ucp-js-sdk';
+
+/* ---------------------------------------------------------------------------
+ * SDK-derived types — single source of truth from @omnixhq/ucp-js-sdk
+ * ------------------------------------------------------------------------- */
+
+export type PostalAddress = z.infer<typeof PostalAddressSchema>;
+
+export type Buyer = z.infer<typeof BuyerSchema>;
+
+export type Total = z.infer<typeof TotalSchema>;
+
+export type TotalType = Total['type'];
+
+export type CheckoutLink = z.infer<typeof LinkSchema>;
+
+export type UCPMessage = SdkMessageError | SdkMessageWarning | SdkMessageInfo;
+
+/* ---------------------------------------------------------------------------
+ * Discovery profile — aligned with UCP spec using SDK response types
+ *
+ * Uses ServiceResponse and CapabilityResponse from the SDK which include
+ * transport/endpoint and extends fields respectively. The hand-authored
+ * UcpDiscoveryProfileSchema in the SDK uses the base UcpEntity which is
+ * too strict, so we define our own profile type using the correct subtypes.
+ * ------------------------------------------------------------------------- */
 
 export interface UCPProfile {
   readonly ucp: {
     readonly version: string;
-    readonly services: Readonly<Record<string, UCPService>>;
-    readonly capabilities: readonly UCPCapability[];
+    readonly services?: Readonly<Record<string, readonly ServiceResponse[]>>;
+    readonly capabilities?: Readonly<Record<string, readonly CapabilityResponse[]>>;
+    readonly payment_handlers?: Readonly<Record<string, readonly Record<string, unknown>[]>>;
   };
-  readonly payment?:
-    | {
-        readonly handlers?: readonly UCPPaymentHandler[];
-      }
-    | undefined;
   readonly signing_keys: readonly JsonWebKey[];
-}
-
-export interface UCPService {
-  readonly version: string;
-  readonly spec: string;
-  readonly rest?: { readonly schema: string; readonly endpoint: string } | undefined;
-  readonly mcp?: { readonly schema: string; readonly endpoint: string } | undefined;
-  readonly a2a?: { readonly endpoint: string } | undefined;
-  readonly embedded?: { readonly schema: string } | undefined;
-}
-
-export interface UCPCapability {
-  readonly name: string;
-  readonly version: string;
-  readonly spec?: string | undefined;
-  readonly schema?: string | undefined;
-  readonly extends?: string | undefined;
-  readonly config?: Readonly<Record<string, unknown>> | undefined;
-}
-
-export interface UCPPaymentHandler {
-  readonly id: string;
-  readonly name: string;
-  readonly version: string;
-  readonly spec: string;
-  readonly config_schema: string;
-  readonly instrument_schemas?: readonly string[] | undefined;
-  readonly config?: Readonly<Record<string, unknown>> | undefined;
-}
-
-export interface PaymentHandler {
-  readonly id: string;
-  readonly name: string;
-  readonly type: 'offline' | 'redirect' | 'card' | 'wallet' | 'other';
 }
 
 export interface JsonWebKey {
@@ -58,6 +60,20 @@ export interface JsonWebKey {
   readonly kid: string;
   readonly [key: string]: unknown;
 }
+
+/**
+ * Simplified payment handler returned by adapters.
+ * Enriched to full UCP PaymentHandler in the response builder.
+ */
+export interface PaymentHandler {
+  readonly id: string;
+  readonly name: string;
+  readonly type: 'offline' | 'redirect' | 'card' | 'wallet' | 'other';
+}
+
+/* ---------------------------------------------------------------------------
+ * Gateway-internal types — no SDK equivalent (adapter contract)
+ * ------------------------------------------------------------------------- */
 
 export interface Product {
   readonly id: string;
@@ -116,33 +132,6 @@ export interface PlaceOrderContext {
   readonly selected_shipping_method?: string | undefined;
 }
 
-export interface Total {
-  readonly type: TotalType;
-  readonly amount: number;
-  readonly display_text?: string | undefined;
-}
-
-export type TotalType =
-  | 'items_discount'
-  | 'subtotal'
-  | 'discount'
-  | 'fulfillment'
-  | 'tax'
-  | 'fee'
-  | 'total';
-
-export interface PostalAddress {
-  readonly first_name?: string | undefined;
-  readonly last_name?: string | undefined;
-  readonly street_address?: string | undefined;
-  readonly extended_address?: string | undefined;
-  readonly address_locality?: string | undefined;
-  readonly address_region?: string | undefined;
-  readonly postal_code?: string | undefined;
-  readonly address_country?: string | undefined;
-  readonly phone_number?: string | undefined;
-}
-
 export interface PaymentToken {
   readonly token: string;
   readonly provider: string;
@@ -161,18 +150,9 @@ export interface PlatformOrder {
 /** @deprecated Use PlatformOrder instead */
 export type Order = PlatformOrder;
 
-export interface Buyer {
-  readonly first_name?: string | undefined;
-  readonly last_name?: string | undefined;
-  readonly email?: string | undefined;
-  readonly phone_number?: string | undefined;
-}
-
-export interface CheckoutLink {
-  readonly type: string;
-  readonly url: string;
-  readonly title?: string | undefined;
-}
+/* ---------------------------------------------------------------------------
+ * Order types — aligned with SDK OrderSchema
+ * ------------------------------------------------------------------------- */
 
 export type OrderLineItemStatus = 'processing' | 'partial' | 'fulfilled';
 
@@ -238,7 +218,7 @@ export interface OrderAdjustment {
 export interface UCPOrder {
   readonly ucp: {
     readonly version: string;
-    readonly capabilities: readonly UCPCapability[];
+    readonly capabilities: Readonly<Record<string, readonly { readonly version: string }[]>>;
   };
   readonly id: string;
   readonly checkout_id: string;
@@ -252,15 +232,6 @@ export interface UCPOrder {
 
 /** @deprecated Use UCPOrder instead */
 export type OrderConfirmation = UCPOrder;
-
-export interface UCPMessage {
-  readonly type: 'error' | 'warning' | 'info';
-  readonly code: string;
-  readonly content: string;
-  readonly severity?: 'recoverable' | 'requires_buyer_input' | 'requires_buyer_review' | undefined;
-  readonly path?: string | undefined;
-  readonly content_type?: 'plain' | 'markdown' | undefined;
-}
 
 /* ---------------------------------------------------------------------------
  * Fulfillment extension types
@@ -299,7 +270,7 @@ export interface FulfillmentGroup {
 
 export interface FulfillmentMethod {
   readonly id: string;
-  readonly type: string;
+  readonly type: 'shipping' | 'pickup';
   readonly line_item_ids: readonly string[];
   readonly destinations?: readonly FulfillmentDestination[] | undefined;
   readonly selected_destination_id?: string | undefined;

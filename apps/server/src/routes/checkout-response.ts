@@ -1,4 +1,4 @@
-import { CheckoutResponseStatusSchema, ExtendedCheckoutResponseSchema } from '@ucp-js/sdk';
+import { CheckoutResponseStatusSchema, ExtendedCheckoutResponseSchema } from '@omnixhq/ucp-js-sdk';
 import type { CheckoutSession, CheckoutLink, PaymentHandler } from '@ucp-gateway/core';
 
 const UCP_VERSION = '2026-01-23';
@@ -86,36 +86,43 @@ function buildRawResponse(
     fulfillment: session.fulfillment ?? undefined,
     discounts: session.discounts ?? undefined,
     payment: {
-      handlers: (options?.paymentHandlers ?? []).map((h) => ({
-        id: h.id,
-        name: h.name,
-        version: UCP_VERSION,
-        spec: 'https://ucp.dev/latest/specification/checkout/',
-        config_schema: `https://ucp.dev/${UCP_VERSION}/schemas/shopping/payment-handler.json`,
-        instrument_schemas: [],
-        config: {},
-      })),
       instruments: [],
     },
     ucp: {
       version: UCP_VERSION,
-      capabilities: [
-        { name: 'dev.ucp.shopping.checkout', version: UCP_VERSION },
-        {
-          name: 'dev.ucp.shopping.fulfillment',
-          version: UCP_VERSION,
-          spec: 'https://ucp.dev/latest/specification/fulfillment/',
-          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json',
-          extends: 'dev.ucp.shopping.checkout',
-        },
-        {
-          name: 'dev.ucp.shopping.discounts',
-          version: UCP_VERSION,
-          spec: 'https://ucp.dev/latest/specification/discounts/',
-          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/discounts.json',
-          extends: 'dev.ucp.shopping.checkout',
-        },
-      ],
+      capabilities: {
+        'dev.ucp.shopping.checkout': [{ version: UCP_VERSION }],
+        'dev.ucp.shopping.fulfillment': [
+          {
+            version: UCP_VERSION,
+            spec: 'https://ucp.dev/latest/specification/fulfillment/',
+            schema: 'https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json',
+            extends: 'dev.ucp.shopping.checkout',
+          },
+        ],
+        'dev.ucp.shopping.discounts': [
+          {
+            version: UCP_VERSION,
+            spec: 'https://ucp.dev/latest/specification/discounts/',
+            schema: 'https://ucp.dev/2026-01-23/schemas/shopping/discounts.json',
+            extends: 'dev.ucp.shopping.checkout',
+          },
+        ],
+      },
+      payment_handlers: Object.fromEntries(
+        (options?.paymentHandlers ?? []).map((h) => [
+          h.id,
+          [
+            {
+              id: h.id,
+              version: UCP_VERSION,
+              spec: 'https://ucp.dev/latest/specification/checkout/',
+              schema: `https://ucp.dev/${UCP_VERSION}/schemas/shopping/payment-handler.json`,
+              config: { name: h.name, type: h.type },
+            },
+          ],
+        ]),
+      ),
     },
   };
 }

@@ -80,52 +80,54 @@ export const MOCK_PROFILE: UCPProfile = {
   ucp: {
     version: '2026-01-23',
     services: {
-      'dev.ucp.shopping': {
-        version: '2026-01-23',
-        spec: 'https://ucp.dev/latest/specification/checkout/',
-        rest: {
+      'dev.ucp.shopping': [
+        {
+          version: '2026-01-23',
+          spec: 'https://ucp.dev/latest/specification/checkout/',
           schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
+          transport: 'rest' as const,
           endpoint: 'http://localhost:3000',
         },
-      },
+      ],
     },
-    capabilities: [
-      {
-        name: 'dev.ucp.shopping.checkout',
-        version: '2026-01-23',
-        spec: 'https://ucp.dev/latest/specification/checkout/',
-        schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
-      },
-      {
-        name: 'dev.ucp.shopping.fulfillment',
-        version: '2026-01-23',
-        spec: 'https://ucp.dev/latest/specification/fulfillment/',
-        schema: 'https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json',
-        extends: 'dev.ucp.shopping.checkout',
-      },
-      {
-        name: 'dev.ucp.shopping.discounts',
-        version: '2026-01-23',
-        spec: 'https://ucp.dev/latest/specification/discounts/',
-        schema: 'https://ucp.dev/2026-01-23/schemas/shopping/discounts.json',
-        extends: 'dev.ucp.shopping.checkout',
-      },
-    ],
+    capabilities: {
+      'dev.ucp.shopping.checkout': [
+        {
+          version: '2026-01-23',
+          spec: 'https://ucp.dev/latest/specification/checkout/',
+          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
+        },
+      ],
+      'dev.ucp.shopping.fulfillment': [
+        {
+          version: '2026-01-23',
+          spec: 'https://ucp.dev/latest/specification/fulfillment/',
+          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json',
+          extends: 'dev.ucp.shopping.checkout',
+        },
+      ],
+      'dev.ucp.shopping.discounts': [
+        {
+          version: '2026-01-23',
+          spec: 'https://ucp.dev/latest/specification/discounts/',
+          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/discounts.json',
+          extends: 'dev.ucp.shopping.checkout',
+        },
+      ],
+    },
+    payment_handlers: {
+      'dev.ucp.mock_payment': [
+        {
+          id: 'mock_payment_handler',
+          version: '2026-01-23',
+          spec: 'https://ucp.dev/latest/specification/overview/',
+          schema: 'https://ucp.dev/latest/specification/overview/',
+          config: {},
+        },
+      ],
+    },
   },
   signing_keys: [],
-  payment: {
-    handlers: [
-      {
-        id: 'mock_payment_handler',
-        name: 'dev.ucp.mock_payment',
-        version: '2026-01-23',
-        spec: 'https://ucp.dev/latest/specification/overview/',
-        config_schema: 'https://ucp.dev/latest/specification/overview/',
-        instrument_schemas: [],
-        config: {},
-      },
-    ],
-  },
 };
 
 /* ---------------------------------------------------------------------------

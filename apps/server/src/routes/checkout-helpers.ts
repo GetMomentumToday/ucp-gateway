@@ -3,10 +3,19 @@ import type { FastifyReply } from 'fastify';
 import type { CheckoutSession, Tenant } from '@ucp-gateway/core';
 import type { Redis as RedisType } from 'ioredis';
 
-const IDEMPOTENCY_TTL_SECONDS = 86400; // 24 hours per spec
+const IDEMPOTENCY_TTL_SECONDS = 86400;
 const UCP_VERSION = '2026-01-23';
 
 export type MessageSeverity = 'recoverable' | 'requires_buyer_input' | 'requires_buyer_review';
+
+function buildUcpBlock(): Record<string, unknown> {
+  return {
+    version: UCP_VERSION,
+    capabilities: {
+      'dev.ucp.shopping.checkout': [{ version: UCP_VERSION }],
+    },
+  };
+}
 
 export function sendSessionError(
   reply: FastifyReply,
@@ -18,11 +27,8 @@ export function sendSessionError(
 ): FastifyReply {
   return reply.status(httpStatus).send({
     status: sessionStatus ?? 'incomplete',
-    messages: [{ type: 'error', code, content: message, severity }],
-    ucp: {
-      version: UCP_VERSION,
-      capabilities: [{ name: 'dev.ucp.shopping.checkout', version: UCP_VERSION }],
-    },
+    messages: [{ type: 'error', code, content: message, content_type: 'plain', severity }],
+    ucp: buildUcpBlock(),
   });
 }
 
@@ -31,26 +37,11 @@ export function buildUCPErrorBody(
   message: string,
   severity: MessageSeverity = 'recoverable',
   sessionStatus: string = 'incomplete',
-): {
-  readonly status: string;
-  readonly messages: readonly {
-    readonly type: 'error';
-    readonly code: string;
-    readonly content: string;
-    readonly severity: string;
-  }[];
-  readonly ucp: {
-    readonly version: string;
-    readonly capabilities: readonly { readonly name: string; readonly version: string }[];
-  };
-} {
+): Record<string, unknown> {
   return {
     status: sessionStatus,
-    messages: [{ type: 'error' as const, code, content: message, severity }],
-    ucp: {
-      version: UCP_VERSION,
-      capabilities: [{ name: 'dev.ucp.shopping.checkout', version: UCP_VERSION }],
-    },
+    messages: [{ type: 'error' as const, code, content: message, content_type: 'plain', severity }],
+    ucp: buildUcpBlock(),
   };
 }
 

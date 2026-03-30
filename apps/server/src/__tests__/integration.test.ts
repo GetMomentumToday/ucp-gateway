@@ -42,8 +42,8 @@ describe('Integration: MockAdapter endpoints', () => {
       expect(ucp['version']).toBe('2026-01-23');
       expect(ucp).toHaveProperty('services');
       expect(ucp).toHaveProperty('capabilities');
-      expect(Array.isArray(ucp['capabilities'])).toBe(true);
-      expect(body).toHaveProperty('payment');
+      expect(typeof ucp['capabilities']).toBe('object');
+      expect(ucp).toHaveProperty('payment_handlers');
       expect(body).toHaveProperty('signing_keys');
 
       const signingKeys = body['signing_keys'] as Record<string, unknown>[];
