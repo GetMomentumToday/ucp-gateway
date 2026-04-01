@@ -43,8 +43,8 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
       'dev.ucp.shopping.cart': [{ version: UCP_VERSION }],
       'dev.ucp.shopping.buyer_consent': [{ version: UCP_VERSION }],
       'dev.ucp.shopping.embedded_checkout': [{ version: UCP_VERSION }],
-      'dev.ucp.identity_linking': [{ version: UCP_VERSION }],
-      'dev.ucp.ap2_mandate': [{ version: UCP_VERSION }],
+      'dev.ucp.shopping.identity_linking': [{ version: UCP_VERSION }],
+      'dev.ucp.shopping.ap2_mandate': [{ version: UCP_VERSION }],
     };
 
     return {

@@ -500,8 +500,8 @@ describe('Behavioral gap coverage', () => {
       expect(capabilities).toHaveProperty('dev.ucp.shopping.cart');
       expect(capabilities).toHaveProperty('dev.ucp.shopping.buyer_consent');
       expect(capabilities).toHaveProperty('dev.ucp.shopping.embedded_checkout');
-      expect(capabilities).toHaveProperty('dev.ucp.identity_linking');
-      expect(capabilities).toHaveProperty('dev.ucp.ap2_mandate');
+      expect(capabilities).toHaveProperty('dev.ucp.shopping.identity_linking');
+      expect(capabilities).toHaveProperty('dev.ucp.shopping.ap2_mandate');
 
       const handlers = ucp['payment_handlers'] as Record<string, unknown>;
       expect(Object.keys(handlers).length).toBeGreaterThan(0);

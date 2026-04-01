@@ -19,7 +19,7 @@ export async function identityRoutes(app: FastifyInstance): Promise<void> {
       ucp: {
         version: UCP_VERSION,
         capabilities: {
-          'dev.ucp.identity_linking': [{ version: UCP_VERSION }],
+          'dev.ucp.shopping.identity_linking': [{ version: UCP_VERSION }],
         },
       },
       mechanisms: config?.mechanisms ?? [],
