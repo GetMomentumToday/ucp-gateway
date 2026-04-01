@@ -15,8 +15,8 @@ No adapter PR can be merged without a passing E2E test.
 
 ### Current E2E workflows:
 
-- Magento: `.github/workflows/test-magento-e2e.yml` + `tests/e2e-magento/`
-- Shopware: TODO
+- Magento: moved to private `@omnixhq/adapter-magento` repo
+- Shopware: moved to private `@omnixhq/adapter-shopware` repo
 
 ## Code Style Rules
 
