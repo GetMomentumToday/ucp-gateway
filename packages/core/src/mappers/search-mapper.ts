@@ -11,7 +11,7 @@ export function fromSdkSearchFilters(
   pagination?: SearchPagination,
 ): SearchQuery {
   const price = filters.price as { min?: number; max?: number } | undefined;
-  const categories = filters.categories as string[] | undefined;
+  const categories = filters.categories;
 
   return {
     q: q ?? '',

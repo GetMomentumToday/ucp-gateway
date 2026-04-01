@@ -5,8 +5,6 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import type { AwilixContainer } from 'awilix';
-import type { Cradle } from '../container/index.js';
 import { buildTestApp } from './test-helpers.js';
 
 const HEADERS = { host: 'mock-store.localhost', 'ucp-agent': 'test-agent/1.0' };
@@ -14,12 +12,10 @@ const JSON_HEADERS = { ...HEADERS, 'content-type': 'application/json' };
 
 describe('Behavioral gap coverage', () => {
   let app: FastifyInstance;
-  let container: AwilixContainer<Cradle>;
 
   beforeAll(async () => {
     const result = await buildTestApp();
     app = result.app;
-    container = result.container;
   });
 
   afterAll(async () => {
