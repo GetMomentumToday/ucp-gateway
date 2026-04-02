@@ -141,6 +141,11 @@ const fulfillmentEventLineItemSchema = z.object({
   quantity: z.number().int().min(1),
 });
 
+const adjustmentLineItemSchema = z.object({
+  id: z.string().min(1),
+  quantity: z.number().int(),
+});
+
 const fulfillmentEventSchema = z.object({
   type: z.string().min(1),
   line_items: z.array(fulfillmentEventLineItemSchema).default([]),
@@ -153,8 +158,8 @@ const fulfillmentEventSchema = z.object({
 const orderAdjustmentSchema = z.object({
   type: z.string().min(1),
   status: z.enum(['pending', 'completed', 'failed']),
-  line_items: z.array(fulfillmentEventLineItemSchema).optional(),
-  amount: z.number().optional(),
+  line_items: z.array(adjustmentLineItemSchema).optional(),
+  amount: z.number().int().optional(),
   description: z.string().optional(),
 });
 

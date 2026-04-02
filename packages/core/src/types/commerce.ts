@@ -247,6 +247,7 @@ export interface OrderAdjustment {
   readonly occurred_at: string;
   readonly status: 'pending' | 'completed' | 'failed';
   readonly line_items?: readonly OrderFulfillmentLineItemRef[] | undefined;
+  /** Signed integer cents (ISO 4217 minor unit). Negative = reduction (refund/return), positive = addition (exchange charge). */
   readonly amount?: number | undefined;
   readonly description?: string | undefined;
 }
@@ -334,6 +335,7 @@ export interface OrderAdjustmentInput {
   readonly type: string;
   readonly status: 'pending' | 'completed' | 'failed';
   readonly line_items?: readonly { readonly id: string; readonly quantity: number }[] | undefined;
+  /** Signed integer cents (ISO 4217 minor unit). Negative = reduction (refund/return), positive = addition (exchange charge). */
   readonly amount?: number | undefined;
   readonly description?: string | undefined;
 }
