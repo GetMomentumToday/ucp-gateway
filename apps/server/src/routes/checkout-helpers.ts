@@ -1,20 +1,40 @@
 import { createHash } from 'node:crypto';
 import type { FastifyReply } from 'fastify';
 import type { CheckoutSession, Tenant } from '@ucp-gateway/core';
+import type { MessageError } from '@omnixhq/ucp-js-sdk';
 import type { Redis as RedisType } from 'ioredis';
 
 const IDEMPOTENCY_TTL_SECONDS = 86400;
 const UCP_VERSION = '2026-01-23';
 
-export type MessageSeverity = 'recoverable' | 'requires_buyer_input' | 'requires_buyer_review';
+export type MessageSeverity = MessageError['severity'];
 
-function buildUcpBlock(): Record<string, unknown> {
+interface UcpErrorBody {
+  readonly status: string;
+  readonly messages: readonly MessageError[];
+  readonly ucp: {
+    readonly version: string;
+    readonly capabilities: Readonly<Record<string, readonly { readonly version: string }[]>>;
+  };
+}
+
+function buildUcpBlock(): UcpErrorBody['ucp'] {
   return {
     version: UCP_VERSION,
     capabilities: {
       'dev.ucp.shopping.checkout': [{ version: UCP_VERSION }],
     },
   };
+}
+
+function buildMessage(code: string, content: string, severity: MessageSeverity): MessageError {
+  return {
+    type: 'error' as const,
+    code,
+    content,
+    content_type: 'plain' as const,
+    severity,
+  } as MessageError;
 }
 
 export function sendSessionError(
@@ -25,11 +45,12 @@ export function sendSessionError(
   severity: MessageSeverity = 'recoverable',
   sessionStatus?: string,
 ): FastifyReply {
-  return reply.status(httpStatus).send({
+  const body: UcpErrorBody = {
     status: sessionStatus ?? 'incomplete',
-    messages: [{ type: 'error', code, content: message, content_type: 'plain', severity }],
+    messages: [buildMessage(code, message, severity)],
     ucp: buildUcpBlock(),
-  });
+  };
+  return reply.status(httpStatus).send(body);
 }
 
 export function buildUCPErrorBody(
@@ -37,10 +58,10 @@ export function buildUCPErrorBody(
   message: string,
   severity: MessageSeverity = 'recoverable',
   sessionStatus: string = 'incomplete',
-): Record<string, unknown> {
+): UcpErrorBody {
   return {
     status: sessionStatus,
-    messages: [{ type: 'error' as const, code, content: message, content_type: 'plain', severity }],
+    messages: [buildMessage(code, message, severity)],
     ucp: buildUcpBlock(),
   };
 }

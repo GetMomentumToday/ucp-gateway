@@ -1,22 +1,30 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import {
+  UcpDiscoveryPlatformProfileSchema,
+  PaymentHandlerResponseSchema,
+  type UcpDiscoveryPlatformProfile,
+  type PaymentHandlerResponse,
+} from '@omnixhq/ucp-js-sdk';
 import type { PlatformAdapter, PaymentHandler } from '@ucp-gateway/core';
 
 const UCP_VERSION = '2026-01-23';
 const PAYMENT_HANDLER_DOMAIN = 'dev.ucp.shopping.checkout';
 
-function toUCPPaymentHandlerEntry(handler: PaymentHandler): Record<string, unknown> {
-  return {
+function toUCPPaymentHandlerEntry(handler: PaymentHandler): PaymentHandlerResponse {
+  const input = {
     id: handler.id,
     version: UCP_VERSION,
     spec: 'https://ucp.dev/latest/specification/checkout/',
     schema: `https://ucp.dev/${UCP_VERSION}/schemas/shopping/payment-handler.json`,
     config: { name: handler.name, type: handler.type },
   };
+  const result = PaymentHandlerResponseSchema.safeParse(input);
+  return result.success ? result.data : (input as unknown as PaymentHandlerResponse);
 }
 
 async function resolvePaymentHandlers(
   adapter: PlatformAdapter,
-): Promise<Record<string, readonly Record<string, unknown>[]>> {
+): Promise<Record<string, readonly PaymentHandlerResponse[]>> {
   if (!adapter.getSupportedPaymentMethods) return {};
   try {
     const methods = await adapter.getSupportedPaymentMethods();
@@ -47,7 +55,7 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
       'dev.ucp.shopping.ap2_mandate': [{ version: UCP_VERSION }],
     };
 
-    return {
+    const input = {
       ucp: {
         ...profile.ucp,
         capabilities: { ...profileCapabilities, ...gatewayCapabilities },
@@ -55,5 +63,9 @@ export async function discoveryRoutes(app: FastifyInstance): Promise<void> {
       },
       signing_keys: signingKeys,
     };
+
+    const result = UcpDiscoveryPlatformProfileSchema.safeParse(input);
+    if (result.success) return result.data;
+    return input as unknown as UcpDiscoveryPlatformProfile;
   });
 }
