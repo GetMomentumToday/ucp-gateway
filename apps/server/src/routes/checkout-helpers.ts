@@ -5,7 +5,7 @@ import type { MessageError } from '@omnixhq/ucp-js-sdk';
 import type { Redis as RedisType } from 'ioredis';
 
 const IDEMPOTENCY_TTL_SECONDS = 86400;
-const UCP_VERSION = '2026-01-23';
+const UCP_VERSION = '2026-04-08';
 
 export type MessageSeverity = MessageError['severity'];
 

@@ -11,7 +11,7 @@
  * Exit code: 0 = compliant, 1 = violations, 2 = fatal error
  */
 
-const UCP_SPEC_VERSION = '2026-01-23';
+const UCP_SPEC_VERSION = '2026-04-08';
 const YYYY_MM_DD = /^\d{4}-\d{2}-\d{2}$/;
 const RFC_3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 const REVERSE_DOMAIN_CAP = /^[a-z]{2,}\.[a-z0-9.-]+\.[a-z0-9_]+\.[a-z0-9_]+$/;

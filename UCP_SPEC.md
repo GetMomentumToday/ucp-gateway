@@ -18,7 +18,7 @@ This middleware implements the **Universal Commerce Protocol (UCP)**.
 
 ## Spec Version
 
-This implementation targets UCP version **2026-01-23**.
+This implementation targets UCP version **2026-04-08**.
 
 ## Compliance Validation
 
@@ -32,7 +32,7 @@ Runs automated checks against a live server (default `http://localhost:3000`).
 
 | Schema      | URL                                                          |
 | ----------- | ------------------------------------------------------------ |
-| Checkout    | https://ucp.dev/2026-01-23/schemas/shopping/checkout.json    |
-| Order       | https://ucp.dev/2026-01-23/schemas/shopping/order.json       |
-| Fulfillment | https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json |
-| Discount    | https://ucp.dev/2026-01-23/schemas/shopping/discount.json    |
+| Checkout    | https://ucp.dev/2026-04-08/schemas/shopping/checkout.json    |
+| Order       | https://ucp.dev/2026-04-08/schemas/shopping/order.json       |
+| Fulfillment | https://ucp.dev/2026-04-08/schemas/shopping/fulfillment.json |
+| Discount    | https://ucp.dev/2026-04-08/schemas/shopping/discount.json    |

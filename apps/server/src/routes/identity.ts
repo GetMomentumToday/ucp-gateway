@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { IdentityLinkRepository } from '@ucp-gateway/core';
 import { buildUCPErrorBody } from './checkout-helpers.js';
 
-const UCP_VERSION = '2026-01-23';
+const UCP_VERSION = '2026-04-08';
 
 const linkCreateSchema = z.object({
   external_id: z.string().min(1),

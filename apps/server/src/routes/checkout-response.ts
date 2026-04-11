@@ -5,7 +5,7 @@ import {
 } from '@omnixhq/ucp-js-sdk';
 import type { CheckoutSession, CheckoutLink, PaymentHandler } from '@ucp-gateway/core';
 
-const UCP_VERSION = '2026-01-23';
+const UCP_VERSION = '2026-04-08';
 const PAYMENT_HANDLER_DOMAIN = 'dev.ucp.shopping.checkout';
 
 const TERMINAL_STATUSES = new Set(['completed', 'canceled']);
@@ -76,7 +76,7 @@ function buildCheckoutResponse(
           {
             version: UCP_VERSION,
             spec: 'https://ucp.dev/latest/specification/fulfillment/',
-            schema: 'https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json',
+            schema: 'https://ucp.dev/2026-04-08/schemas/shopping/fulfillment.json',
             extends: 'dev.ucp.shopping.checkout',
           },
         ],

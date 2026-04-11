@@ -5,7 +5,7 @@ import { buildUCPErrorBody } from '../routes/checkout-helpers.js';
 const SKIP_PATHS = new Set(['/health', '/ready']);
 const RFC_8941_PROFILE_PATTERN = /profile="([^"]+)"/;
 const RFC_8941_VERSION_PATTERN = /version="([^"]+)"/;
-const SERVER_UCP_VERSION = '2026-01-23';
+const SERVER_UCP_VERSION = '2026-04-08';
 
 function getUrlPath(url: string): string {
   return url.split('?')[0]!;

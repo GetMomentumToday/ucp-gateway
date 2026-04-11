@@ -23,7 +23,7 @@
 
 ## Features
 
-- **UCP spec compliant** — 150/150 SDK schemas covered (`@omnixhq/ucp-js-sdk` v1.1.0-draft.3.1)
+- **UCP spec compliant** — 148/148 SDK schemas covered (`@omnixhq/ucp-js-sdk` v2.0.0)
 - **MockAdapter built-in** — Magento 2.x and Shopware 6.x available as private `@omnixhq` packages
 - **Full checkout flow** — discovery, search, create/update/complete/cancel sessions
 - **Catalog & cart** — product search with categories/filters, cart CRUD, SDK-shaped responses
@@ -118,7 +118,7 @@ curl -H "UCP-Agent: my-agent/1.0" 'http://localhost:3000/ucp/products?q=shoes' |
 npm run validate:ucp   # Automated spec checks
 ```
 
-SDK: `@omnixhq/ucp-js-sdk` v1.1.0-draft.3.1 — 150/150 schemas covered.
+SDK: `@omnixhq/ucp-js-sdk` v2.0.0 — 148/148 schemas covered.
 
 See [UCP_SPEC.md](UCP_SPEC.md) for specification links.
 

@@ -84,7 +84,7 @@ describe('Integration: signing_keys in discovery profile', () => {
     const ucp = body['ucp'] as Record<string, unknown>;
     expect(ucp).toHaveProperty('payment_handlers');
     expect(body).toHaveProperty('signing_keys');
-    expect((body['ucp'] as Record<string, unknown>)['version']).toBe('2026-01-23');
+    expect((body['ucp'] as Record<string, unknown>)['version']).toBe('2026-04-08');
   });
 
   it('signing_keys x/y values are valid base64url (no padding)', async () => {

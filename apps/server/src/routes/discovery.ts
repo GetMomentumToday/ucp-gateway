@@ -7,7 +7,7 @@ import {
 } from '@omnixhq/ucp-js-sdk';
 import type { PlatformAdapter, PaymentHandler } from '@ucp-gateway/core';
 
-const UCP_VERSION = '2026-01-23';
+const UCP_VERSION = '2026-04-08';
 const PAYMENT_HANDLER_DOMAIN = 'dev.ucp.shopping.checkout';
 
 function toUCPPaymentHandlerEntry(handler: PaymentHandler): PaymentHandlerResponse {

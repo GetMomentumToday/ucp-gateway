@@ -190,7 +190,7 @@ export type Order = PlatformOrder;
  * Order types — aligned with SDK OrderSchema
  * ------------------------------------------------------------------------- */
 
-export type OrderLineItemStatus = 'processing' | 'partial' | 'fulfilled';
+export type OrderLineItemStatus = 'processing' | 'partial' | 'fulfilled' | 'removed';
 
 export interface OrderLineItemQuantity {
   readonly total: number;
@@ -249,6 +249,7 @@ export interface OrderAdjustment {
   readonly line_items?: readonly OrderFulfillmentLineItemRef[] | undefined;
   /** Signed integer cents (ISO 4217 minor unit). Negative = reduction (refund/return), positive = addition (exchange charge). */
   readonly amount?: number | undefined;
+  readonly totals?: readonly { readonly type: string; readonly amount: number }[] | undefined;
   readonly description?: string | undefined;
 }
 
@@ -261,6 +262,7 @@ export interface UCPOrder {
   readonly checkout_id: string;
   readonly permalink_url: string;
   readonly line_items: readonly OrderLineItem[];
+  readonly currency: string;
   readonly totals: readonly Total[];
   readonly fulfillment: OrderFulfillment;
   readonly adjustments: readonly OrderAdjustment[];

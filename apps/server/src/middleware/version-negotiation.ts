@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 
-const SUPPORTED_VERSION = '2026-01-23';
+const SUPPORTED_VERSION = '2026-04-08';
 
 export async function versionNegotiationPlugin(app: FastifyInstance): Promise<void> {
   app.addHook('onRequest', async (request, reply) => {

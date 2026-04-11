@@ -1,6 +1,6 @@
 import type { Cart, LineItem, Buyer, SdkCart } from '../types/commerce.js';
 
-const UCP_VERSION = '2026-01-23';
+const UCP_VERSION = '2026-04-08';
 
 function mapLineItem(item: LineItem, index: number): SdkCart['line_items'][number] {
   const lineTotal = item.unit_price_cents * item.quantity;

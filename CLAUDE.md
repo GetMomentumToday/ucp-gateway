@@ -69,9 +69,9 @@ cat docs/UCP_GAP_ANALYSIS.md | grep MISSING
 
 ### Current Score (2026-04-02)
 
-- SDK schema coverage: 150/150 (100%) — `@omnixhq/ucp-js-sdk` v1.1.0-draft.3.1
+- SDK schema coverage: 148/148 (100%) — `@omnixhq/ucp-js-sdk` v2.0.0
 - Integration tests: 222 passing (including 18 behavioral gap tests)
 - MUST/SHOULD: 60/79 (76%)
 - Automated checks: 29/34 pass
 - 0 MUST gaps remaining
-- Spec version: 2026-01-23
+- Spec version: 2026-04-08

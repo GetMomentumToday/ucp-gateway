@@ -297,10 +297,10 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
 
     const input = {
       ucp: {
-        version: '2026-01-23',
+        version: '2026-04-08',
         status: 'success' as const,
         capabilities: {
-          'dev.ucp.shopping.order': [{ version: '2026-01-23' }],
+          'dev.ucp.shopping.order': [{ version: '2026-04-08' }],
         },
       },
       id: order.id,
@@ -313,7 +313,17 @@ export async function checkoutRoutes(app: FastifyInstance): Promise<void> {
         expectations: details?.fulfillment_expectations ?? [],
         events: details?.fulfillment_events ?? [],
       },
-      adjustments: details?.adjustments ?? [],
+      adjustments: (details?.adjustments ?? []).map((adj) => ({
+        id: adj.id,
+        type: adj.type,
+        occurred_at: adj.occurred_at,
+        status: adj.status,
+        line_items: adj.line_items,
+        description: adj.description,
+        totals:
+          adj.totals ??
+          (adj.amount !== undefined ? [{ type: 'total' as const, amount: adj.amount }] : []),
+      })),
     };
 
     const result = OrderSchema.safeParse(input);

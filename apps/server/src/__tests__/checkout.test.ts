@@ -24,7 +24,7 @@ describe('E2E Checkout: MockAdapter full flow', () => {
     });
     expect(profileRes.statusCode).toBe(200);
     const profile = JSON.parse(profileRes.body) as { ucp: { version: string } };
-    expect(profile.ucp.version).toBe('2026-01-23');
+    expect(profile.ucp.version).toBe('2026-04-08');
 
     const searchRes = await app.inject({
       method: 'GET',
@@ -233,7 +233,7 @@ describe('E2E Checkout: MockAdapter full flow', () => {
       ucp: { version: string };
     };
     expect(fetched.id).toBe(session.id);
-    expect(fetched.ucp.version).toBe('2026-01-23');
+    expect(fetched.ucp.version).toBe('2026-04-08');
   });
 
   it('returns 404 for unknown session', async () => {

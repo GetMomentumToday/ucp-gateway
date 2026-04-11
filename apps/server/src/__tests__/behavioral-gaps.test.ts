@@ -444,7 +444,7 @@ describe('Behavioral gap coverage', () => {
 
       expect(body).toHaveProperty('ucp');
       const ucp = body['ucp'] as Record<string, unknown>;
-      expect(ucp['version']).toBe('2026-01-23');
+      expect(ucp['version']).toBe('2026-04-08');
       expect(ucp).toHaveProperty('capabilities');
 
       expect(body).toHaveProperty('products');
@@ -531,7 +531,8 @@ describe('Behavioral gap coverage', () => {
       expect(adjustments.length).toBe(1);
       expect(adjustments[0]!['type']).toBe('refund');
       expect(adjustments[0]!['status']).toBe('completed');
-      expect(adjustments[0]!['amount']).toBe(5000);
+      const totals = adjustments[0]!['totals'] as { type: string; amount: number }[];
+      expect(totals[0]!.amount).toBe(5000);
     });
   });
 

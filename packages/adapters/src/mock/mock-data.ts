@@ -90,13 +90,13 @@ export function toFulfillmentDestination(addr: MockAddress): FulfillmentDestinat
 
 export const MOCK_PROFILE: UCPProfile = {
   ucp: {
-    version: '2026-01-23',
+    version: '2026-04-08',
     services: {
       'dev.ucp.shopping': [
         {
-          version: '2026-01-23',
+          version: '2026-04-08',
           spec: 'https://ucp.dev/latest/specification/checkout/',
-          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
+          schema: 'https://ucp.dev/2026-04-08/schemas/shopping/checkout.json',
           transport: 'rest' as const,
           endpoint: 'http://localhost:3000',
         },
@@ -105,33 +105,33 @@ export const MOCK_PROFILE: UCPProfile = {
     capabilities: {
       'dev.ucp.shopping.checkout': [
         {
-          version: '2026-01-23',
+          version: '2026-04-08',
           spec: 'https://ucp.dev/latest/specification/checkout/',
-          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/checkout.json',
+          schema: 'https://ucp.dev/2026-04-08/schemas/shopping/checkout.json',
         },
       ],
       'dev.ucp.shopping.fulfillment': [
         {
-          version: '2026-01-23',
+          version: '2026-04-08',
           spec: 'https://ucp.dev/latest/specification/fulfillment/',
-          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/fulfillment.json',
+          schema: 'https://ucp.dev/2026-04-08/schemas/shopping/fulfillment.json',
           extends: 'dev.ucp.shopping.checkout',
           config: { supports_multi_group: false, supports_pickup: true },
         },
       ],
       'dev.ucp.shopping.discount': [
         {
-          version: '2026-01-23',
+          version: '2026-04-08',
           spec: 'https://ucp.dev/latest/specification/discount/',
-          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/discount.json',
+          schema: 'https://ucp.dev/2026-04-08/schemas/shopping/discount.json',
           extends: 'dev.ucp.shopping.checkout',
         },
       ],
       'dev.ucp.shopping.order': [
         {
-          version: '2026-01-23',
+          version: '2026-04-08',
           spec: 'https://ucp.dev/latest/specification/order/',
-          schema: 'https://ucp.dev/2026-01-23/schemas/shopping/order.json',
+          schema: 'https://ucp.dev/2026-04-08/schemas/shopping/order.json',
           extends: 'dev.ucp.shopping.checkout',
         },
       ],
@@ -140,7 +140,7 @@ export const MOCK_PROFILE: UCPProfile = {
       'dev.ucp.mock_payment': [
         {
           id: 'mock_payment_handler',
-          version: '2026-01-23',
+          version: '2026-04-08',
           spec: 'https://ucp.dev/latest/specification/overview/',
           schema: 'https://ucp.dev/latest/specification/overview/',
           config: {},

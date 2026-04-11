@@ -156,7 +156,7 @@ describe('Webhook Integration: checkout → EventBus', () => {
     expect(payload['ucp']).toBeDefined();
 
     const ucp = payload['ucp'] as Record<string, unknown>;
-    expect(ucp['version']).toBe('2026-01-23');
+    expect(ucp['version']).toBe('2026-04-08');
   });
 
   it('emits order.canceled when session is canceled', async () => {

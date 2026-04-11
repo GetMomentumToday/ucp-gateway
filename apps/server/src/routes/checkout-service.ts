@@ -35,7 +35,7 @@ import type {
   completeSessionSchema,
 } from './checkout-schemas.js';
 
-const UCP_VERSION = '2026-01-23';
+const UCP_VERSION = '2026-04-08';
 
 type CreateSessionBody = z.infer<typeof createSessionSchema>;
 type UpdateSessionBody = z.infer<typeof updateSessionSchema>;
@@ -466,6 +466,7 @@ export async function handleCompleteSession(
         totals: [...li.totals],
         status: 'processing' as const,
       })),
+      currency: session.currency ?? 'USD',
       totals: [...session.totals],
       fulfillment: orderFulfillment,
       adjustments: [],

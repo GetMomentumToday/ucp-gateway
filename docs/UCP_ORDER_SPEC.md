@@ -1,10 +1,10 @@
-# UCP Order Specification (v2026-01-23)
+# UCP Order Specification (v2026-04-08)
 
-Source: https://ucp.dev/2026-01-23/schemas/shopping/order.json
+Source: https://ucp.dev/2026-04-08/schemas/shopping/order.json
 
 ## Order Object (top-level)
 
-**Required**: `ucp`, `id`, `checkout_id`, `permalink_url`, `line_items`, `fulfillment`, `totals`
+**Required**: `ucp`, `id`, `checkout_id`, `permalink_url`, `line_items`, `fulfillment`, `currency`, `totals`
 **Optional**: `adjustments`
 
 | Field                      | Type                 | Required | Description                                      |
@@ -26,11 +26,11 @@ Required fields: `version`, `capabilities`
 
 ```json
 {
-  "version": "2026-01-23",
+  "version": "2026-04-08",
   "capabilities": [
     {
       "name": "dev.ucp.shopping.order",
-      "version": "2026-01-23"
+      "version": "2026-04-08"
     }
   ]
 }

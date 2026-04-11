@@ -39,7 +39,7 @@ describe('Integration: MockAdapter endpoints', () => {
       const body = JSON.parse(res.body) as Record<string, unknown>;
       expect(body).toHaveProperty('ucp');
       const ucp = body['ucp'] as Record<string, unknown>;
-      expect(ucp['version']).toBe('2026-01-23');
+      expect(ucp['version']).toBe('2026-04-08');
       expect(ucp).toHaveProperty('services');
       expect(ucp).toHaveProperty('capabilities');
       expect(typeof ucp['capabilities']).toBe('object');

@@ -4,7 +4,7 @@ import { SearchFiltersSchema, UcpResponseCatalogSchema, type Product } from '@om
 import { AdapterError, toSdkProduct, fromSdkSearchFilters } from '@ucp-gateway/core';
 import { buildUCPErrorBody } from './checkout-helpers.js';
 
-const UCP_VERSION = '2026-01-23';
+const UCP_VERSION = '2026-04-08';
 
 const catalogSearchQuerySchema = z.object({
   q: z.string().optional().default(''),
