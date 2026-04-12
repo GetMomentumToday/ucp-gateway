@@ -136,13 +136,15 @@ echo ""
 echo "  Catalog Capability"
 echo "  ------------------"
 
-curl -sf "$UCP_BASE_URL/ucp/catalog/search?q=roses" \
-  -H "$AGENT_HEADER" > "$TMPDIR/catalog-search.json" 2>/dev/null
+curl -sf -X POST "$UCP_BASE_URL/ucp/catalog/search" \
+  -H "$AGENT_HEADER" -H "Content-Type: application/json" \
+  -d '{"q":"roses"}' > "$TMPDIR/catalog-search.json" 2>/dev/null
 wrap_with_ucp_metadata "$TMPDIR/catalog-search.json" "$TMPDIR/catalog-search-sd.json" "$CATALOG_SEARCH_CAPS"
 validate_payload "catalog search (op=read)" "$TMPDIR/catalog-search-sd.json" "read"
 
-curl -sf "$UCP_BASE_URL/ucp/products/bouquet_roses" \
-  -H "$AGENT_HEADER" > "$TMPDIR/catalog-lookup.json" 2>/dev/null
+curl -sf -X POST "$UCP_BASE_URL/ucp/catalog/product" \
+  -H "$AGENT_HEADER" -H "Content-Type: application/json" \
+  -d '{"id":"bouquet_roses"}' > "$TMPDIR/catalog-lookup.json" 2>/dev/null
 wrap_with_ucp_metadata "$TMPDIR/catalog-lookup.json" "$TMPDIR/catalog-lookup-sd.json" "$CATALOG_LOOKUP_CAPS"
 validate_payload "catalog lookup (op=read)" "$TMPDIR/catalog-lookup-sd.json" "read"
 

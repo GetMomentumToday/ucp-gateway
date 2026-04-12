@@ -61,12 +61,12 @@ curl -H "UCP-Agent: my-agent/1.0" 'http://localhost:3000/ucp/products?q=shoes' |
 
 ### Catalog
 
-| Method | Path                        | Description                                   |
-| ------ | --------------------------- | --------------------------------------------- |
-| `GET`  | `/ucp/catalog/search?q=...` | Catalog search with UCP envelope + pagination |
-| `GET`  | `/ucp/catalog/lookup/{id}`  | Single product lookup in UCP envelope         |
-| `GET`  | `/ucp/products?q=...`       | Product search (legacy)                       |
-| `GET`  | `/ucp/products/{id}`        | Product detail (legacy)                       |
+| Method | Path                   | Description                                   |
+| ------ | ---------------------- | --------------------------------------------- |
+| `POST` | `/ucp/catalog/search`  | Catalog search with UCP envelope + pagination |
+| `POST` | `/ucp/catalog/product` | Single product lookup in UCP envelope         |
+| `GET`  | `/ucp/products?q=...`  | Product search (legacy)                       |
+| `GET`  | `/ucp/products/{id}`   | Product detail (legacy)                       |
 
 ### Cart
 

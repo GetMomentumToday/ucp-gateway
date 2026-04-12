@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 36-test smoke test suite (`smoke-mock-server.test.ts`) covering full checkout flow, cart CRUD, catalog, session lifecycle, error handling, discovery profile, fulfillment events, and multi-item checkout
 - Full alignment with `@omnixhq/ucp-js-sdk` v1.1.0-draft.3.1 — all responses validated through SDK schemas
 - `dev.ucp.shopping.order` capability in discovery profile
-- Catalog routes (`/ucp/catalog/search`, `/ucp/catalog/lookup/{id}`) with SDK-shaped responses
+- Catalog routes (`POST /ucp/catalog/search`, `POST /ucp/catalog/product`) with SDK-shaped responses
 - Cart CRUD routes (`/ucp/cart`)
 - Identity linking routes (`/ucp/identity/*`)
 - AP2 mandates middleware

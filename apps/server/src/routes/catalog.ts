@@ -6,17 +6,20 @@ import { buildUCPErrorBody } from './checkout-helpers.js';
 
 const UCP_VERSION = '2026-04-08';
 
-const catalogSearchQuerySchema = z.object({
-  q: z.string().optional().default(''),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-  page: z.coerce.number().int().min(1).default(1),
+const catalogSearchBodySchema = z.object({
+  q: z.string().max(512).optional().default(''),
+  limit: z.number().int().min(1).max(100).optional().default(20),
+  page: z.number().int().min(1).optional().default(1),
+  filters: SearchFiltersSchema.optional(),
 });
 
-const catalogLookupParamsSchema = z.object({
+const catalogProductBodySchema = z.object({
   id: z.string().min(1),
 });
 
-function buildCatalogEnvelope(): z.infer<typeof UcpResponseCatalogSchema> {
+function buildCatalogEnvelope(log?: {
+  warn: (obj: Record<string, unknown>, msg: string) => void;
+}): z.infer<typeof UcpResponseCatalogSchema> {
   const input = {
     version: UCP_VERSION,
     status: 'success' as const,
@@ -25,6 +28,9 @@ function buildCatalogEnvelope(): z.infer<typeof UcpResponseCatalogSchema> {
     },
   };
   const result = UcpResponseCatalogSchema.safeParse(input);
+  if (!result.success) {
+    log?.warn({ issues: result.error.issues }, 'UcpResponseCatalogSchema validation failed');
+  }
   return result.success ? result.data : (input as z.infer<typeof UcpResponseCatalogSchema>);
 }
 
@@ -39,66 +45,67 @@ interface CatalogLookupResponse {
   readonly product: Product;
 }
 
+const CATALOG_SEARCH_BODY_LIMIT = 8_192;
+const CATALOG_PRODUCT_BODY_LIMIT = 256;
+
 export async function catalogRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/ucp/catalog/search', async (request: FastifyRequest, reply: FastifyReply) => {
-    const queryParsed = catalogSearchQuerySchema.safeParse(request.query);
-    if (!queryParsed.success) {
-      return reply
-        .status(400)
-        .send(
-          buildUCPErrorBody(
-            'validation_error',
-            queryParsed.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; '),
-          ),
-        );
-    }
-
-    const { q, limit, page } = queryParsed.data;
-
-    const rawQuery = request.query as Record<string, unknown>;
-    const filtersParsed = SearchFiltersSchema.safeParse({
-      categories: rawQuery['categories'] ? String(rawQuery['categories']).split(',') : undefined,
-      price:
-        rawQuery['price_min'] || rawQuery['price_max']
-          ? {
-              min: rawQuery['price_min'] ? Number(rawQuery['price_min']) : undefined,
-              max: rawQuery['price_max'] ? Number(rawQuery['price_max']) : undefined,
-            }
-          : undefined,
-    });
-
-    const filters = filtersParsed.success ? filtersParsed.data : {};
-    const adapterQuery = fromSdkSearchFilters(filters, q, { limit, page });
-    const products = await request.adapter.searchProducts(adapterQuery);
-
-    const response: CatalogSearchResponse = {
-      ucp: buildCatalogEnvelope(),
-      products: products.map(toSdkProduct),
-      pagination: { page, limit, count: products.length },
-    };
-    return response;
-  });
-
-  app.get<{ Params: { id: string } }>(
-    '/ucp/catalog/lookup/:id',
-    async (request, reply: FastifyReply) => {
-      const paramsParsed = catalogLookupParamsSchema.safeParse(request.params);
-      if (!paramsParsed.success) {
+  app.post(
+    '/ucp/catalog/search',
+    { config: {}, bodyLimit: CATALOG_SEARCH_BODY_LIMIT },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const bodyParsed = catalogSearchBodySchema.safeParse(request.body);
+      if (!bodyParsed.success) {
         return reply
           .status(400)
-          .send(buildUCPErrorBody('validation_error', 'Product ID is required'));
+          .send(
+            buildUCPErrorBody(
+              'validation_error',
+              bodyParsed.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; '),
+            ),
+          );
+      }
+
+      const { q, limit, page, filters } = bodyParsed.data;
+      const adapterQuery = fromSdkSearchFilters(filters ?? {}, q, { limit, page });
+      const products = await request.adapter.searchProducts(adapterQuery);
+
+      const response: CatalogSearchResponse = {
+        ucp: buildCatalogEnvelope(request.log),
+        products: products.map(toSdkProduct),
+        pagination: { page, limit, count: products.length },
+      };
+      return response;
+    },
+  );
+
+  app.post(
+    '/ucp/catalog/product',
+    { config: {}, bodyLimit: CATALOG_PRODUCT_BODY_LIMIT },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const bodyParsed = catalogProductBodySchema.safeParse(request.body);
+      if (!bodyParsed.success) {
+        return reply
+          .status(400)
+          .send(
+            buildUCPErrorBody(
+              'validation_error',
+              bodyParsed.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; '),
+            ),
+          );
       }
 
       try {
-        const product = await request.adapter.getProduct(paramsParsed.data.id);
+        const product = await request.adapter.getProduct(bodyParsed.data.id);
         const response: CatalogLookupResponse = {
-          ucp: buildCatalogEnvelope(),
+          ucp: buildCatalogEnvelope(request.log),
           product: toSdkProduct(product),
         };
         return response;
       } catch (err: unknown) {
         if (err instanceof AdapterError && err.code === 'PRODUCT_NOT_FOUND') {
-          return reply.status(404).send(buildUCPErrorBody('product_not_found', err.message));
+          return reply
+            .status(404)
+            .send(buildUCPErrorBody('product_not_found', 'Product not found'));
         }
         throw err;
       }

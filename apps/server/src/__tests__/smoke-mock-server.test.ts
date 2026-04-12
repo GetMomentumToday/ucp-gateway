@@ -278,11 +278,12 @@ describe('Cart CRUD', () => {
  * ───────────────────────────────────────────────────────────────────────── */
 
 describe('Catalog search and lookup', () => {
-  it('GET /ucp/catalog/search returns UCP envelope with version', async () => {
+  it('POST /ucp/catalog/search returns UCP envelope with version', async () => {
     const res = await app.inject({
-      method: 'GET',
-      url: '/ucp/catalog/search?q=test',
-      headers: HEADERS,
+      method: 'POST',
+      url: '/ucp/catalog/search',
+      headers: JSON_HEADERS,
+      payload: { q: 'test' },
     });
 
     expect(res.statusCode).toBe(200);
@@ -293,11 +294,12 @@ describe('Catalog search and lookup', () => {
     expect(body).toHaveProperty('pagination');
   });
 
-  it('GET /ucp/catalog/lookup/:id returns single product with UCP envelope', async () => {
+  it('POST /ucp/catalog/product returns single product with UCP envelope', async () => {
     const res = await app.inject({
-      method: 'GET',
-      url: '/ucp/catalog/lookup/prod-001',
-      headers: HEADERS,
+      method: 'POST',
+      url: '/ucp/catalog/product',
+      headers: JSON_HEADERS,
+      payload: { id: 'prod-001' },
     });
 
     expect(res.statusCode).toBe(200);
@@ -307,14 +309,37 @@ describe('Catalog search and lookup', () => {
     expect(body).toHaveProperty('product');
   });
 
-  it('GET /ucp/catalog/lookup/:unknown returns 404', async () => {
+  it('POST /ucp/catalog/product with unknown id returns 404', async () => {
     const res = await app.inject({
-      method: 'GET',
-      url: '/ucp/catalog/lookup/nonexistent-product',
-      headers: HEADERS,
+      method: 'POST',
+      url: '/ucp/catalog/product',
+      headers: JSON_HEADERS,
+      payload: { id: 'nonexistent-product' },
     });
 
     expect(res.statusCode).toBe(404);
+  });
+
+  it('POST /ucp/catalog/product with empty id returns 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/ucp/catalog/product',
+      headers: JSON_HEADERS,
+      payload: { id: '' },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('POST /ucp/catalog/search with string limit returns 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/ucp/catalog/search',
+      headers: JSON_HEADERS,
+      payload: { q: 'test', limit: '20' },
+    });
+
+    expect(res.statusCode).toBe(400);
   });
 
   it('GET /ucp/products/:id returns single product detail', async () => {

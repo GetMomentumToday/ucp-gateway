@@ -261,9 +261,10 @@ describe('Behavioral gap coverage', () => {
   describe('Gap 5: Shipping cost varies by destination', () => {
     it('catalog search returns products with categories for filtering', async () => {
       const usRes = await app.inject({
-        method: 'GET',
-        url: '/ucp/catalog/search?q=shoes&categories=footwear',
-        headers: HEADERS,
+        method: 'POST',
+        url: '/ucp/catalog/search',
+        headers: JSON_HEADERS,
+        payload: { q: 'shoes', filters: { categories: ['footwear'] } },
       });
       expect(usRes.statusCode).toBe(200);
       const body = JSON.parse(usRes.body) as Record<string, unknown>;
@@ -433,11 +434,12 @@ describe('Behavioral gap coverage', () => {
   // ── Catalog search with SDK response shape ────────────────────────────
 
   describe('Catalog SDK-shaped responses', () => {
-    it('GET /ucp/catalog/search returns UCP envelope with pagination', async () => {
+    it('POST /ucp/catalog/search returns UCP envelope with pagination', async () => {
       const res = await app.inject({
-        method: 'GET',
-        url: '/ucp/catalog/search?q=shoes',
-        headers: HEADERS,
+        method: 'POST',
+        url: '/ucp/catalog/search',
+        headers: JSON_HEADERS,
+        payload: { q: 'shoes' },
       });
       expect(res.statusCode).toBe(200);
       const body = JSON.parse(res.body) as Record<string, unknown>;
@@ -455,11 +457,12 @@ describe('Behavioral gap coverage', () => {
       expect(pagination).toHaveProperty('count');
     });
 
-    it('GET /ucp/catalog/lookup/:id returns single product in envelope', async () => {
+    it('POST /ucp/catalog/product returns single product in envelope', async () => {
       const res = await app.inject({
-        method: 'GET',
-        url: '/ucp/catalog/lookup/prod-001',
-        headers: HEADERS,
+        method: 'POST',
+        url: '/ucp/catalog/product',
+        headers: JSON_HEADERS,
+        payload: { id: 'prod-001' },
       });
       expect(res.statusCode).toBe(200);
       const body = JSON.parse(res.body) as Record<string, unknown>;
